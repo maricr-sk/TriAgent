@@ -1,0 +1,328 @@
+# TriAgent triage rules (draft v0.1)
+#
+# Maps a person's symptoms to a suggested level of care, and each level of care
+# to a maps search term (Google Maps Platform Places) for finding nearby
+# facilities within the person's travel radius.
+#
+# These rules paraphrase public "when to seek care" guidance. Every rule cites
+# its source(s) by key from the `sources` section. They are suggestions only,
+# not a diagnosis or medical advice, and have not been clinically reviewed.
+#
+# How the engine should apply this file:
+#   1. Check `red_flags` first. Any match ends triage at that rule's level,
+#      and for call_911 the reply tells the person to call 911 before
+#      listing any facilities.
+#   2. Otherwise find the matching complaint in `symptom_rules`. Start at its
+#      `default_level`, apply its `escalate_if` / `deescalate_if` lists, then
+#      apply `modifiers`.
+#   3. When unsure, or when two rules disagree, pick the higher level.
+#   4. Never de-escalate below a level set by a red flag or an escalate_if.
+#
+# Adding a complaint: copy an existing entry in `symptom_rules`, give it a new
+# `id`, list `aliases` people actually say, and cite at least one source per
+# escalate/deescalate line. Add any new source to `sources` first.
+
+version: 0.1
+last_reviewed: 2026-10-04
+disclaimer: >
+  TriAgent offers suggestions about where to seek care. It is not a diagnosis
+  or medical advice. If you think it may be an emergency, call 911 or your
+  local emergency number.
+
+# Ordered highest to lowest. `rank` is used for "pick the higher level"
+# comparisons and for modifiers that bump a level up.
+care_levels:
+  - id: call_911
+    rank: 5
+    label: Call 911 now
+    maps_search: null          # do not search; tell the person to call 911 first
+    notes: Emergency services come to you. Do not drive yourself.
+  - id: er
+    rank: 4
+    label: Emergency room
+    maps_search: emergency room
+    maps_type: hospital
+  - id: urgent_care
+    rank: 3
+    label: Urgent care
+    maps_search: urgent care clinic
+  - id: clinic_or_telehealth
+    rank: 2
+    label: Primary care clinic or telehealth
+    maps_search: primary care clinic
+    notes: Telehealth is an option when no in-person clinic is within radius.
+  - id: self_care
+    rank: 1
+    label: Self-care at home, pharmacist if needed
+    maps_search: pharmacy
+    notes: Recheck if symptoms get worse or do not improve.
+
+sources:
+  nhs_anaphylaxis:
+    title: "NHS: Anaphylaxis"
+    url: https://www.nhs.uk/conditions/anaphylaxis/
+  nhs_allergies:
+    title: "NHS: Allergies"
+    url: https://www.nhs.uk/conditions/allergies/
+  nhs_fever_adults:
+    title: "NHS: High temperature (fever) in adults"
+    url: https://www.nhs.uk/conditions/fever-in-adults/
+  nhs_fever_children:
+    title: "NHS: High temperature (fever) in children"
+    url: https://www.nhs.uk/conditions/fever-in-children/
+  nhs_chest_pain:
+    title: "NHS: Chest pain"
+    url: https://www.nhs.uk/conditions/chest-pain/
+  nhs_stomach_ache:
+    title: "NHS: Stomach ache"
+    url: https://www.nhs.uk/conditions/stomach-ache/
+  nhs_cuts:
+    title: "NHS: Cuts and grazes"
+    url: https://www.nhs.uk/conditions/cuts-and-grazes/
+  medlineplus_er:
+    title: "MedlinePlus: When to use the emergency room (adult)"
+    url: https://medlineplus.gov/ency/patientinstructions/000593.htm
+  cdc_heart_attack:
+    title: "CDC: About heart attack and symptoms"
+    url: https://www.cdc.gov/heart-disease/about/heart-attack.html
+  cdc_stroke:
+    title: "CDC: Signs and symptoms of stroke"
+    url: https://www.cdc.gov/stroke/signs-symptoms/index.html
+
+# Checked before anything else. Any match goes straight to its level.
+red_flags:
+  - id: breathing_difficulty
+    level: call_911
+    signs:
+      - struggling to breathe or breathing very fast
+      - choking
+      - lips, skin or tongue turning blue, grey or very pale
+    sources: [nhs_anaphylaxis, medlineplus_er]
+
+  - id: anaphylaxis
+    level: call_911
+    signs:
+      - sudden swelling of lips, mouth, tongue or throat
+      - throat feels tight or trouble swallowing
+      - allergic reaction with trouble breathing, swelling or hives
+      - sudden confusion, drowsiness or dizziness after an allergen
+    sources: [nhs_anaphylaxis, nhs_allergies, medlineplus_er]
+
+  - id: heart_attack_signs
+    level: call_911
+    signs:
+      - chest pain, pressure or squeezing that does not go away
+      - chest pain spreading to arm, neck, jaw, back or stomach
+      - chest pain with sweating, nausea, dizziness or breathlessness
+    sources: [nhs_chest_pain, cdc_heart_attack, medlineplus_er]
+
+  - id: stroke_signs
+    level: call_911
+    signs:
+      - face drooping on one side
+      - one arm drifting down or sudden one-sided weakness or numbness
+      - slurred speech or trouble understanding speech
+      - sudden vision loss, loss of balance or severe headache with no known cause
+    notes: Use the BE FAST check. Do not drive yourself.
+    sources: [cdc_stroke, medlineplus_er]
+
+  - id: unresponsive_or_seizure
+    level: call_911
+    signs:
+      - unconscious or cannot be woken
+      - seizure lasting more than 1 minute, or a first seizure
+      - sudden severe confusion
+      - child is floppy or unresponsive
+    sources: [medlineplus_er, nhs_anaphylaxis, nhs_fever_children]
+
+  - id: uncontrolled_bleeding
+    level: call_911
+    signs:
+      - bleeding that will not stop with firm pressure
+      - bright red blood spurting from a wound
+    sources: [nhs_cuts, medlineplus_er]
+
+  - id: meningitis_signs
+    level: call_911
+    signs:
+      - fever with a stiff neck
+      - fever with a rash that does not fade under a pressed glass
+      - fever with sensitivity to light
+    sources: [nhs_fever_children, medlineplus_er]
+
+  - id: self_harm_or_overdose
+    level: call_911
+    signs:
+      - thoughts of suicide or harming others
+      - suspected poisoning or overdose
+    notes: In the US, 988 (call or text) is the Suicide and Crisis Lifeline.
+    sources: [medlineplus_er]
+
+  - id: vomiting_blood
+    level: er
+    signs:
+      - vomiting blood or vomit that looks like ground coffee
+      - coughing up blood
+      - black, sticky stools
+    sources: [nhs_stomach_ache, medlineplus_er]
+
+symptom_rules:
+  - id: allergic_reaction
+    label: Allergic reaction
+    aliases: [allergy, hives, rash after eating, bee sting reaction, itchy rash]
+    default_level: self_care
+    default_advice: Antihistamine from a pharmacist; avoid the trigger.
+    escalate_if:
+      - to: call_911
+        when: any anaphylaxis or breathing red flag
+        sources: [nhs_anaphylaxis]
+      - to: urgent_care
+        when: widespread hives or swelling that is spreading but breathing is normal
+        sources: [medlineplus_er]
+      - to: clinic_or_telehealth
+        when: reactions keep happening or the trigger is unknown (for allergy testing)
+        sources: [nhs_allergies]
+    deescalate_if: []
+    sources: [nhs_allergies, nhs_anaphylaxis, medlineplus_er]
+
+  - id: fever
+    label: Fever / high temperature
+    aliases: [high temperature, temp, feeling hot, chills]
+    default_level: self_care
+    default_advice: Rest, fluids, paracetamol or ibuprofen if uncomfortable.
+    escalate_if:
+      - to: call_911
+        when: any meningitis, breathing or unresponsive red flag
+        sources: [nhs_fever_children, medlineplus_er]
+      - to: er
+        when: fever that does not respond to medicine, or with uncontrolled vomiting or diarrhea
+        sources: [medlineplus_er]
+      - to: urgent_care
+        when: infant under 3 months at 38°C (100.4°F) or higher
+        sources: [nhs_fever_children]
+      - to: urgent_care
+        when: infant 3 to 6 months at 39°C (102.2°F) or higher
+        sources: [nhs_fever_children]
+      - to: urgent_care
+        when: signs of dehydration (dry diapers, sunken eyes, no tears)
+        sources: [nhs_fever_children]
+      - to: clinic_or_telehealth
+        when: treated at home but not improving or getting worse
+        sources: [nhs_fever_adults]
+      - to: clinic_or_telehealth
+        when: lasting 5 days or more in a child
+        sources: [nhs_fever_children]
+    deescalate_if: []
+    sources: [nhs_fever_adults, nhs_fever_children, medlineplus_er]
+
+  - id: chest_pain
+    label: Chest pain
+    aliases: [chest tightness, chest pressure, heart pain]
+    # Higher default on purpose: chest pain is hard to rule out remotely.
+    default_level: er
+    escalate_if:
+      - to: call_911
+        when: any heart attack, breathing or stroke red flag
+        sources: [nhs_chest_pain, cdc_heart_attack]
+    deescalate_if:
+      - to: clinic_or_telehealth
+        when: pain comes and goes, or went away quickly, and no red flags or risk modifiers apply
+        sources: [nhs_chest_pain]
+    sources: [nhs_chest_pain, cdc_heart_attack, medlineplus_er]
+
+  - id: abdominal_pain
+    label: Abdominal pain / stomach ache
+    aliases: [stomach ache, belly pain, tummy pain, cramps]
+    default_level: self_care
+    default_advice: Most stomach aches pass in a few days; a pharmacist can help with indigestion or constipation.
+    escalate_if:
+      - to: er
+        when: sudden or severe pain, or pain when the stomach is touched
+        sources: [nhs_stomach_ache]
+      - to: er
+        when: cannot pee, poo or pass gas
+        sources: [nhs_stomach_ache]
+      - to: er
+        when: vomiting and has diabetes
+        sources: [nhs_stomach_ache]
+      - to: urgent_care
+        when: pain while pregnant
+        sources: [nhs_stomach_ache]
+      - to: urgent_care
+        when: rectal bleeding, or diarrhea for several days
+        sources: [nhs_stomach_ache]
+      - to: clinic_or_telehealth
+        when: pain that keeps coming back or getting worse, ongoing bloating, unexplained weight loss, pain when peeing
+        sources: [nhs_stomach_ache]
+    deescalate_if: []
+    sources: [nhs_stomach_ache]
+
+  - id: minor_injury_cut
+    label: Minor injury or cut
+    aliases: [cut, laceration, scrape, graze, wound, gash]
+    default_level: self_care
+    default_advice: Press to stop bleeding, rinse with clean water, cover with a sterile dressing.
+    escalate_if:
+      - to: call_911
+        when: uncontrolled bleeding red flag
+        sources: [nhs_cuts]
+      - to: er
+        when: very large or deep wound, numbness or trouble moving near it, or something stuck in it
+        sources: [nhs_cuts, medlineplus_er]
+      - to: er
+        when: bad cut on the face or palm of the hand
+        sources: [nhs_cuts]
+      - to: er
+        when: suspected broken bone with visible deformity
+        sources: [medlineplus_er]
+      - to: urgent_care
+        when: cut longer than about 5 cm (2 inches), or dirt, soil or pus in it
+        sources: [nhs_cuts]
+      - to: urgent_care
+        when: bitten by a person or a wild or stray animal
+        sources: [nhs_cuts]
+      - to: urgent_care
+        when: signs of infection (red, swollen, more painful, pus) or a fever
+        sources: [nhs_cuts]
+      - to: urgent_care
+        when: sprain or suspected minor fracture
+        sources: [medlineplus_er]
+    deescalate_if: []
+    sources: [nhs_cuts, medlineplus_er]
+
+# Applied after the symptom rule. Each bumps the level up by `bump` ranks
+# (capped at er; only red flags reach call_911). Bumps do not stack beyond +1
+# total, to avoid sending every older adult with a cold to the ER.
+modifiers:
+  - id: infant
+    when: age under 1 year
+    bump: 1
+    sources: [nhs_fever_children]
+  - id: older_adult
+    when: age 65 or older
+    bump: 1
+    notes: Inferred caution; no single source sets this threshold. Review before launch.
+    sources: []
+  - id: pregnancy
+    when: currently pregnant
+    bump: 1
+    sources: [nhs_stomach_ache]
+  - id: worsening
+    when: symptoms getting worse despite home care
+    bump: 1
+    sources: [nhs_fever_adults, nhs_stomach_ache, nhs_cuts]
+  - id: long_duration
+    when: symptoms lasting longer than the complaint's expected course (e.g. fever 5+ days, diarrhea several days)
+    bump: 1
+    sources: [nhs_fever_children, nhs_stomach_ache]
+  - id: chronic_condition
+    when: diabetes, weakened immune system, or heart or lung disease
+    bump: 1
+    notes: Partly inferred; NHS cites diabetes with vomiting specifically.
+    sources: [nhs_stomach_ache]
+
+tie_break:
+  rule: when_unsure_pick_higher
+  description: >
+    If symptoms are vague, rules conflict, or the person cannot answer a
+    question that would decide between two levels, suggest the higher one.
