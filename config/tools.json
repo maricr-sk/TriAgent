@@ -36,5 +36,27 @@
         }
       }
     }
+  },
+  {
+    "name": "offer_choices",
+    "description": "Show tappable answer chips under your question on the web page, so the person can answer with one tap instead of typing. Call it whenever your question has a short set of likely answers: travel radius, how long symptoms have lasted, age band, yes or no, transport, insurance, or a short checklist of symptoms. Write the question in your reply text as usual, then call this tool once in the same turn. The person can always type something else instead. Never call it in an emergency reply. Returns {\"shown\": true}; add no more text after calling it.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["options"],
+      "properties": {
+        "options": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 6,
+          "items": { "type": "string", "maxLength": 40 },
+          "description": "2 to 6 short answers, written the way the person would say them (for example \"5 miles\", \"10 miles\", \"25 miles\", \"50 miles\")."
+        },
+        "multiple": {
+          "type": "boolean",
+          "description": "True when the person may pick more than one, such as a checklist of symptoms. Include a \"None of these\" option in that case."
+        }
+      }
+    }
   }
 ]

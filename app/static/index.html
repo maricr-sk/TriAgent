@@ -3,78 +3,124 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TriAgent</title>
+<title>Angie · TriAgent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Nunito:wght@700;800&display=swap">
 <style>
+  /* Tidewater: calm water blue, coral kept only for emergencies. */
   :root {
-    --bg: #f7f6f3; --panel: #ffffff; --text: #1f2328; --muted: #5f6670;
-    --border: #e3e1dc; --accent: #2f6f62; --accent-text: #ffffff;
-    --you: #e7f0ed; --warn-bg: #fff6e0; --warn: #7a5300;
+    --bg-top: #e8f1f5; --bg: #f5f8f9; --panel: #ffffff; --text: #1b2a33; --muted: #5a6c77;
+    --border: #d6e3ea; --accent: #34779a; --accent-text: #ffffff;
+    --you: #dcebf2; --you-text: #173341; --tag-bg: #e2f0f6; --tag-text: #245d7a;
+    --sos-bg: #fff1ec; --sos: #9a3412; --urgent: #c2410c; --urgent-bg: #fff3ef;
+    --warn-bg: #fff6e0; --warn: #7a5300;
+    --font-display: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #17191c; --panel: #202327; --text: #e8e6e3; --muted: #a0a6ad;
-      --border: #33373c; --accent: #5fb3a1; --accent-text: #10221e;
-      --you: #23332f; --warn-bg: #3a3020; --warn: #f0c870;
+      --bg-top: #13232c; --bg: #0f1a20; --panel: #182830; --text: #e3edf2; --muted: #9bb0bc;
+      --border: #284250; --accent: #6db3d6; --accent-text: #0b1d26;
+      --you: #1f3a49; --you-text: #e3edf2; --tag-bg: #1d3542; --tag-text: #9fd0e8;
+      --sos-bg: #3a2018; --sos: #ffb59a; --urgent: #f0703f; --urgent-bg: #2e1c16;
+      --warn-bg: #3a3020; --warn: #f0c870;
     }
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
   body {
-    background: var(--bg); color: var(--text);
-    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: linear-gradient(180deg, var(--bg-top) 0, var(--bg) 320px) var(--bg);
+    color: var(--text); font: 16px/1.55 var(--font-body);
     display: flex; flex-direction: column;
   }
-  header, main, form, .wrap { width: 100%; max-width: 760px; margin: 0 auto; padding: 0 16px; }
-  header { padding-top: 20px; padding-bottom: 8px; display: flex; align-items: baseline; gap: 12px; }
-  header h1 { font-size: 22px; margin: 0; }
-  header p { margin: 0; color: var(--muted); font-size: 14px; flex: 1; }
-  header button { background: none; border: 1px solid var(--border); color: var(--muted);
-    border-radius: 8px; padding: 4px 10px; font: inherit; font-size: 14px; cursor: pointer; }
-  .notice { margin: 4px 0 0; padding: 10px 12px; border-radius: 10px; font-size: 14px;
+  header, main, form, .wrap { width: 100%; max-width: 720px; margin: 0 auto; padding: 0 16px; }
+  header { padding-top: 18px; padding-bottom: 10px; display: flex; align-items: center; gap: 12px; }
+  .avatar { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--accent); color: var(--accent-text); font: 800 14px/1 var(--font-display); }
+  header .avatar { width: 40px; height: 40px; font-size: 18px; }
+  header h1 { font: 800 22px/1.1 var(--font-display); margin: 0; }
+  header p { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+  header button { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--muted);
+    border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 14px; cursor: pointer; }
+  .sos { padding: 9px 14px; border-radius: 12px; font-size: 14px; background: var(--sos-bg); color: var(--sos); }
+  .notice { margin: 8px 0 0; padding: 10px 12px; border-radius: 12px; font-size: 14px;
     background: var(--warn-bg); color: var(--warn); }
-  main { flex: 1; overflow-y: auto; padding-top: 12px; padding-bottom: 12px; }
-  .msg { padding: 12px 14px; border-radius: 12px; margin: 0 0 12px; max-width: 92%;
-    background: var(--panel); border: 1px solid var(--border); overflow-wrap: anywhere; }
-  .msg.you { background: var(--you); margin-left: auto; border-color: transparent; white-space: pre-wrap; }
-  .msg p { margin: 0 0 8px; } .msg p:last-child { margin: 0; }
-  .msg ul, .msg ol { margin: 0 0 8px; padding-left: 22px; }
+  main { flex: 1; overflow-y: auto; padding-top: 16px; padding-bottom: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .row { display: flex; gap: 8px; align-items: flex-end; }
+  .row .avatar { visibility: hidden; }
+  .row.last .avatar { visibility: visible; }
+  .msg { padding: 10px 14px; border-radius: 18px; max-width: 86%; overflow-wrap: anywhere;
+    background: var(--panel); border: 1px solid var(--border); }
+  .row .msg { border-bottom-left-radius: 6px; }
+  .msg.you { background: var(--you); color: var(--you-text); margin: 6px 0 4px auto; border-color: transparent;
+    border-bottom-right-radius: 6px; white-space: pre-wrap; }
+  .msg p { margin: 0 0 6px; } .msg p:last-child { margin: 0; }
+  .msg ul, .msg ol { margin: 0 0 6px; padding-left: 20px; }
+  .msg ul:last-child, .msg ol:last-child { margin-bottom: 0; }
   .msg a { color: var(--accent); }
+  .msg.urgent { background: var(--urgent-bg); border-color: var(--urgent); }
+  .msg.urgent::before { content: "Emergency"; display: block; width: fit-content; margin-bottom: 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 999px; background: var(--urgent); color: #fff; }
   .msg.error { border-color: var(--warn); color: var(--warn); }
-  .typing { color: var(--muted); font-style: italic; }
-  form { display: flex; gap: 8px; padding-top: 8px; padding-bottom: 16px; }
-  textarea { flex: 1; resize: none; min-height: 48px; max-height: 160px; padding: 12px;
-    border-radius: 12px; border: 1px solid var(--border); background: var(--panel);
+  .fine { margin: 0 0 4px 38px; font-size: 12px; color: var(--muted); max-width: 80%; }
+  .typing { color: var(--muted); font-style: italic; font-size: 14px; margin-left: 38px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 6px 38px; }
+  .chip { font: inherit; font-size: 14px; padding: 7px 14px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--panel); color: var(--text); }
+  .chip:hover { border-color: var(--accent); }
+  .chip[aria-pressed="true"] { background: var(--tag-bg); border-color: var(--accent); color: var(--tag-text); font-weight: 700; }
+  .chip.done { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 700; }
+  .chip:disabled { opacity: .45; cursor: default; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  form { display: flex; gap: 8px; padding-top: 8px; padding-bottom: 12px; }
+  textarea { flex: 1; resize: none; min-height: 50px; max-height: 160px; padding: 13px 14px;
+    border-radius: 18px; border: 1px solid var(--border); background: var(--panel);
     color: var(--text); font: inherit; }
-  form button { border: 0; border-radius: 12px; padding: 0 18px; font: inherit; font-weight: 600;
+  form button { border: 0; border-radius: 18px; padding: 0 20px; font: inherit; font-weight: 700;
     background: var(--accent); color: var(--accent-text); cursor: pointer; }
   form button:disabled { opacity: .5; cursor: default; }
   footer { text-align: center; color: var(--muted); font-size: 12px; padding: 0 16px 12px; }
+  @media (prefers-reduced-motion: no-preference) {
+    .row, .chips, .fine { animation: rise .25s ease-out both; }
+    @keyframes rise { from { opacity: .2; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>TriAgent</h1>
-  <p>Tell me your symptoms, where you are, and how far you can travel.</p>
+  <div class="avatar" aria-hidden="true">A</div>
+  <div>
+    <h1>Angie</h1>
+    <p>Your care guide · TriAgent</p>
+  </div>
   <button type="button" id="restart">New chat</button>
 </header>
 <div class="wrap">
+  <div class="sos" role="note">Chest pain, trouble breathing or heavy bleeding? <strong>Call 911 now.</strong></div>
   <div class="notice" id="fake" hidden>Test mode: no Google Maps key is set, so the places shown are made up.</div>
 </div>
-<main id="log" aria-live="polite">
-  <div class="msg"><p>Hi, I'm Angie I can suggest what kind of care fits your symptoms and where to find it nearby. If this might be an emergency, call 911 now.</p></div>
-</main>
+<main id="log" aria-live="polite"></main>
 <form id="form">
-  <textarea id="input" placeholder="e.g. I have itchy hives on my arms, I'm in Austin TX and can drive 10 miles" aria-label="Your message" required></textarea>
+  <textarea id="input" placeholder="Tell Angie what's going on…" aria-label="Your message" required></textarea>
   <button id="send">Send</button>
 </form>
-<footer>Suggestions only. Not a diagnosis or medical advice. In an emergency, call 911.</footer>
+<footer>Angie offers suggestions, not a diagnosis or medical advice. In an emergency, call 911.</footer>
 
 <script>
 const log = document.getElementById("log");
 const form = document.getElementById("form");
 const input = document.getElementById("input");
 const send = document.getElementById("send");
+const DISCLAIMER = /^Angie offers suggestions about where to seek care/i;
+const GREETING = [
+  "**Hi, I'm Angie.** I help you figure out where to go for care, from home remedies to urgent care or the ER.",
+  "What's going on? Tell me in your own words, or tap one of these.",
+];
+const STARTERS = ["I have a rash or hives", "My child has a fever", "I hurt myself", "Something feels urgent"];
 let session = null;
+let busy = false;
 
 function escapeHtml(s) {
   return s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -106,13 +152,112 @@ function render(md) {
   return out.join("");
 }
 
-function add(text, who) {
+// Split a reply into separate texts at blank lines. A line ending in ":" stays
+// with the list under it, so "Next steps:" and its items arrive together.
+function parts(text) {
+  const blocks = text.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean);
+  const merged = [];
+  for (const b of blocks) {
+    const prev = merged[merged.length - 1];
+    if (prev && /:$/.test(prev) && /^([-*•]|\d+[.)])\s/.test(b)) merged[merged.length - 1] = prev + "\n" + b;
+    else merged.push(b);
+  }
+  return merged;
+}
+
+function scrollDown() { log.scrollTop = log.scrollHeight; }
+
+function addYou(text) {
   const div = document.createElement("div");
-  div.className = "msg " + who;
-  if (who === "you") div.textContent = text; else div.innerHTML = render(text);
+  div.className = "msg you";
+  div.textContent = text;
   log.appendChild(div);
-  log.scrollTop = log.scrollHeight;
-  return div;
+  scrollDown();
+}
+
+function addAngie(text, extraClass = "") {
+  // Only the last text in a run of Angie's texts shows Angie's avatar.
+  const prev = log.lastElementChild;
+  if (prev && prev.classList.contains("row")) prev.classList.remove("last");
+  const row = document.createElement("div");
+  row.className = "row last";
+  row.innerHTML = '<div class="avatar" aria-hidden="true">A</div>';
+  const div = document.createElement("div");
+  div.className = ("msg " + extraClass).trim();
+  div.innerHTML = render(text);
+  row.appendChild(div);
+  log.appendChild(row);
+  scrollDown();
+}
+
+function addFine(text) {
+  const p = document.createElement("p");
+  p.className = "fine";
+  p.textContent = text;
+  log.appendChild(p);
+  scrollDown();
+}
+
+function addError(text) {
+  const div = document.createElement("div");
+  div.className = "msg error";
+  div.textContent = text;
+  log.appendChild(div);
+  scrollDown();
+}
+
+const pause = ms => new Promise(r => setTimeout(r, matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : ms));
+
+// Show Angie's reply one short text at a time.
+async function showReply(text) {
+  const list = parts(text);
+  for (let i = 0; i < list.length; i++) {
+    const part = list[i];
+    if (DISCLAIMER.test(part)) { addFine(part); continue; }
+    const urgent = i === 0 && /call 911|local emergency number/i.test(part);
+    if (i > 0) await pause(450);
+    addAngie(part, urgent ? "urgent" : "");
+  }
+}
+
+function clearChips() {
+  log.querySelectorAll(".chips").forEach(c => c.querySelectorAll("button").forEach(b => { b.disabled = true; }));
+}
+
+// Tappable answers. A single-choice chip sends at once; anything already typed in
+// the box goes along with it. Multiple-choice chips toggle, then "Send" sends them.
+function addChips(options, multiple) {
+  const box = document.createElement("div");
+  box.className = "chips";
+  box.setAttribute("role", "group");
+  box.setAttribute("aria-label", "Suggested answers");
+  const picked = new Set();
+  let done = null;
+  for (const option of options) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip";
+    b.textContent = option;
+    if (multiple) b.setAttribute("aria-pressed", "false");
+    b.addEventListener("click", () => {
+      if (!multiple) return submit(option, true);
+      if (picked.has(option)) picked.delete(option); else picked.add(option);
+      b.setAttribute("aria-pressed", String(picked.has(option)));
+      done.disabled = picked.size === 0;
+    });
+    box.appendChild(b);
+  }
+  if (multiple) {
+    done = document.createElement("button");
+    done.type = "button";
+    done.className = "chip done";
+    done.textContent = "Send";
+    done.disabled = true;
+    done.addEventListener("click", () => submit([...picked].join(", "), true));
+    box.appendChild(done);
+  }
+  log.appendChild(box);
+  scrollDown();
 }
 
 async function newSession() {
@@ -120,14 +265,22 @@ async function newSession() {
   session = (await r.json()).session;
 }
 
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const text = input.value.trim();
-  if (!text || send.disabled) return;
-  add(text, "you");
-  input.value = "";
+async function submit(text, fromChip = false) {
+  if (busy) return;
+  const typed = input.value.trim();
+  if (fromChip && typed) text = typed + ", " + text;
+  text = text.trim();
+  if (!text) return;
+  busy = true;
   send.disabled = true;
-  const typing = add("TriAgent is thinking…", "typing");
+  clearChips();
+  addYou(text);
+  input.value = "";
+  const typing = document.createElement("p");
+  typing.className = "typing";
+  typing.textContent = "Angie is typing…";
+  log.appendChild(typing);
+  scrollDown();
   try {
     if (!session) await newSession();
     const r = await fetch("/api/chat", {
@@ -136,29 +289,47 @@ form.addEventListener("submit", async (e) => {
     });
     const data = await r.json();
     typing.remove();
-    if (data.error) add(data.error, "error"); else add(data.reply, "bot");
+    if (data.error) addError(data.error);
+    else {
+      await showReply(data.reply || "");
+      if (data.choices && data.choices.options && data.choices.options.length) {
+        await pause(250);
+        addChips(data.choices.options, data.choices.multiple);
+      }
+    }
   } catch (err) {
     typing.remove();
-    add("Couldn't reach the TriAgent server. Is it still running?", "error");
+    addError("Couldn't reach Angie. Is the TriAgent server still running?");
   } finally {
+    busy = false;
     send.disabled = false;
     input.focus();
   }
-});
+}
+
+function greet() {
+  log.innerHTML = "";
+  GREETING.forEach(g => addAngie(g));
+  addChips(STARTERS, false);
+}
+
+form.addEventListener("submit", (e) => { e.preventDefault(); submit(input.value); });
 
 input.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
 });
 
 document.getElementById("restart").addEventListener("click", () => {
+  if (busy) return;
   session = null;
-  log.querySelectorAll(".msg:not(:first-child)").forEach(el => el.remove());
+  greet();
   input.focus();
 });
 
 fetch("/api/config").then(r => r.json()).then(c => {
   document.getElementById("fake").hidden = !c.fake_clinics;
 }).catch(() => {});
+greet();
 input.focus();
 </script>
 </body>
