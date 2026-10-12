@@ -13,6 +13,7 @@
     --bg-top: #e8f1f5; --bg: #f5f8f9; --panel: #ffffff; --text: #1b2a33; --muted: #5a6c77;
     --border: #d6e3ea; --accent: #34779a; --accent-text: #ffffff;
     --you: #dcebf2; --you-text: #173341; --tag-bg: #e2f0f6; --tag-text: #245d7a;
+    --chip-bg: #e6f2f8; --chip-border: #9cc6dc; --chip-text: #1f5f80;
     --sos-bg: #fff1ec; --sos: #9a3412; --urgent: #c2410c; --urgent-bg: #fff3ef;
     --warn-bg: #fff6e0; --warn: #7a5300;
     --font-display: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -23,6 +24,7 @@
       --bg-top: #13232c; --bg: #0f1a20; --panel: #182830; --text: #e3edf2; --muted: #9bb0bc;
       --border: #284250; --accent: #6db3d6; --accent-text: #0b1d26;
       --you: #1f3a49; --you-text: #e3edf2; --tag-bg: #1d3542; --tag-text: #9fd0e8;
+      --chip-bg: #1b3644; --chip-border: #3d6b82; --chip-text: #a9d6ec;
       --sos-bg: #3a2018; --sos: #ffb59a; --urgent: #f0703f; --urgent-bg: #2e1c16;
       --warn-bg: #3a3020; --warn: #f0c870;
     }
@@ -67,10 +69,11 @@
   .fine { margin: 0 0 4px 38px; font-size: 12px; color: var(--muted); max-width: 80%; }
   .typing { color: var(--muted); font-style: italic; font-size: 14px; margin-left: 38px; }
   .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 6px 38px; }
-  .chip { font: inherit; font-size: 14px; padding: 7px 14px; border-radius: 999px; cursor: pointer;
-    border: 1px solid var(--border); background: var(--panel); color: var(--text); }
+  .chip { font: inherit; font-size: 14px; font-weight: 700; padding: 7px 14px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--chip-border); background: var(--chip-bg); color: var(--chip-text); }
   .chip:hover { border-color: var(--accent); }
-  .chip[aria-pressed="true"] { background: var(--tag-bg); border-color: var(--accent); color: var(--tag-text); font-weight: 700; }
+  .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  .chip[aria-pressed="true"]::before { content: "✓ "; }
   .chip.done { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 700; }
   .chip:disabled { opacity: .45; cursor: default; }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
