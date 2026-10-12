@@ -36,7 +36,11 @@
     color: var(--text); font: 16px/1.55 var(--font-body);
     display: flex; flex-direction: column;
   }
-  header, main, form, .wrap { width: 100%; max-width: 720px; margin: 0 auto; padding: 0 16px; }
+  header, main, form, .wrap { width: 100%; max-width: 1080px; margin: 0 auto; padding: 0 16px; }
+  @media (min-width: 900px) {
+    header, main, form, .wrap { padding: 0 32px; }
+    body { font-size: 17px; }
+  }
   header { padding-top: 18px; padding-bottom: 10px; display: flex; align-items: center; gap: 12px; }
   .avatar { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
     background: var(--accent); color: var(--accent-text); font: 800 14px/1 var(--font-display); }
@@ -52,7 +56,7 @@
   .row { display: flex; gap: 8px; align-items: flex-end; }
   .row .avatar { visibility: hidden; }
   .row.last .avatar { visibility: visible; }
-  .msg { padding: 10px 14px; border-radius: 18px; max-width: 86%; overflow-wrap: anywhere;
+  .msg { padding: 10px 14px; border-radius: 18px; max-width: min(86%, 46rem); overflow-wrap: anywhere;
     background: var(--panel); border: 1px solid var(--border); }
   .row .msg { border-bottom-left-radius: 6px; }
   .msg.you { background: var(--you); color: var(--you-text); margin: 6px 0 4px auto; border-color: transparent;
