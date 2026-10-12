@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/maricr-sk/TriAgent/schemas/intake_schema.json",
   "title": "record_intake",
-  "description": "Draft v0.1 (2026-10-12). Facts TriAgent gathers before suggesting a level of care. Use as the input_schema of the record_intake tool. The model calls it as it learns facts, so every field is optional per call; the app merges calls into one intake record. Before a facility search the merged record must have location and travel_radius; before get_care_level it must have at least one symptom or red flag. Never collect a name, date of birth or full address unless the person offers it. Not clinically reviewed.",
+  "description": "Draft v0.2 (2026-10-12; added escalation_signs). Facts TriAgent gathers before suggesting a level of care. Use as the input_schema of the record_intake tool. The model calls it as it learns facts, so every field is optional per call; the app merges calls into one intake record. Before a facility search the merged record must have location and travel_radius; before get_care_level it must have at least one symptom or red flag. Never collect a name, date of birth or full address unless the person offers it. Not clinically reviewed.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -58,6 +58,43 @@
       "description": "Short facts that may match a complaint's escalate_if lines but are not red flags, e.g. 'swelling spreading, breathing normal', 'cut about 3 inches long', 'no wet diapers since morning', 'can't pass gas'. One fact per item.",
       "type": "array",
       "items": { "type": "string" }
+    },
+    "escalation_signs": {
+      "description": "Escalation sign ids from triage_rules.yaml escalation_signs that the person's words match. Not red flags; they raise the level within a complaint's rules. Record a sign only when the person said it; keep their words in escalation_details too.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "spreading_hives_or_swelling",
+          "recurring_or_unknown_trigger",
+          "fever_not_responding_to_medicine",
+          "uncontrolled_vomiting_or_diarrhea",
+          "dehydration_signs",
+          "not_improving_with_home_care",
+          "chest_pain_went_away_quickly",
+          "sudden_or_severe_pain",
+          "pain_when_stomach_touched",
+          "cannot_pass_urine_stool_or_gas",
+          "vomiting",
+          "rectal_bleeding",
+          "diarrhea_several_days",
+          "recurring_or_worsening_stomach_pain",
+          "ongoing_bloating",
+          "unexplained_weight_loss",
+          "pain_when_peeing",
+          "large_or_deep_wound",
+          "numbness_or_trouble_moving",
+          "object_in_wound",
+          "bad_cut_face_or_palm",
+          "deformed_limb",
+          "cut_over_5cm",
+          "dirt_or_pus_in_wound",
+          "bite_human_or_wild_animal",
+          "wound_infection_signs",
+          "sprain_or_possible_fracture"
+        ]
+      }
     },
     "onset": {
       "type": "object",
@@ -174,6 +211,7 @@
       ],
       "red_flags": [],
       "escalation_details": ["hives on both arms, not spreading, breathing normal, no lip swelling"],
+      "escalation_signs": [],
       "onset": { "started": "about an hour ago", "duration_value": 1, "duration_unit": "hours", "sudden": true },
       "trend": "about_the_same",
       "age_band": "adult_18_to_64",
