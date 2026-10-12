@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TriAgent</title>
+<style>
+  :root {
+    --bg: #f7f6f3; --panel: #ffffff; --text: #1f2328; --muted: #5f6670;
+    --border: #e3e1dc; --accent: #2f6f62; --accent-text: #ffffff;
+    --you: #e7f0ed; --warn-bg: #fff6e0; --warn: #7a5300;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17191c; --panel: #202327; --text: #e8e6e3; --muted: #a0a6ad;
+      --border: #33373c; --accent: #5fb3a1; --accent-text: #10221e;
+      --you: #23332f; --warn-bg: #3a3020; --warn: #f0c870;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column;
+  }
+  header, main, form, .wrap { width: 100%; max-width: 760px; margin: 0 auto; padding: 0 16px; }
+  header { padding-top: 20px; padding-bottom: 8px; display: flex; align-items: baseline; gap: 12px; }
+  header h1 { font-size: 22px; margin: 0; }
+  header p { margin: 0; color: var(--muted); font-size: 14px; flex: 1; }
+  header button { background: none; border: 1px solid var(--border); color: var(--muted);
+    border-radius: 8px; padding: 4px 10px; font: inherit; font-size: 14px; cursor: pointer; }
+  .notice { margin: 4px 0 0; padding: 10px 12px; border-radius: 10px; font-size: 14px;
+    background: var(--warn-bg); color: var(--warn); }
+  main { flex: 1; overflow-y: auto; padding-top: 12px; padding-bottom: 12px; }
+  .msg { padding: 12px 14px; border-radius: 12px; margin: 0 0 12px; max-width: 92%;
+    background: var(--panel); border: 1px solid var(--border); overflow-wrap: anywhere; }
+  .msg.you { background: var(--you); margin-left: auto; border-color: transparent; white-space: pre-wrap; }
+  .msg p { margin: 0 0 8px; } .msg p:last-child { margin: 0; }
+  .msg ul, .msg ol { margin: 0 0 8px; padding-left: 22px; }
+  .msg a { color: var(--accent); }
+  .msg.error { border-color: var(--warn); color: var(--warn); }
+  .typing { color: var(--muted); font-style: italic; }
+  form { display: flex; gap: 8px; padding-top: 8px; padding-bottom: 16px; }
+  textarea { flex: 1; resize: none; min-height: 48px; max-height: 160px; padding: 12px;
+    border-radius: 12px; border: 1px solid var(--border); background: var(--panel);
+    color: var(--text); font: inherit; }
+  form button { border: 0; border-radius: 12px; padding: 0 18px; font: inherit; font-weight: 600;
+    background: var(--accent); color: var(--accent-text); cursor: pointer; }
+  form button:disabled { opacity: .5; cursor: default; }
+  footer { text-align: center; color: var(--muted); font-size: 12px; padding: 0 16px 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>TriAgent</h1>
+  <p>Tell me your symptoms, where you are, and how far you can travel.</p>
+  <button type="button" id="restart">New chat</button>
+</header>
+<div class="wrap">
+  <div class="notice" id="fake" hidden>Test mode: no Google Maps key is set, so the places shown are made up.</div>
+</div>
+<main id="log" aria-live="polite">
+  <div class="msg"><p>Hi, I'm TriAgent. I can suggest what kind of care fits your symptoms and where to find it nearby. If this might be an emergency, call 911 now.</p></div>
+</main>
+<form id="form">
+  <textarea id="input" placeholder="e.g. I have itchy hives on my arms, I'm in Austin TX and can drive 10 miles" aria-label="Your message" required></textarea>
+  <button id="send">Send</button>
+</form>
+<footer>Suggestions only. Not a diagnosis or medical advice. In an emergency, call 911.</footer>
+
+<script>
+const log = document.getElementById("log");
+const form = document.getElementById("form");
+const input = document.getElementById("input");
+const send = document.getElementById("send");
+let session = null;
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+// Small Markdown subset: paragraphs, bullet and numbered lists, **bold**, *italic*, links.
+function inline(s) {
+  return escapeHtml(s)
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[^*])\*([^*\s][^*]*?)\*/g, "$1<em>$2</em>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+}
+function render(md) {
+  const out = [];
+  let list = null;
+  for (const raw of md.split("\n")) {
+    const line = raw.trim();
+    const bullet = line.match(/^[-*•]\s+(.*)/), num = line.match(/^\d+[.)]\s+(.*)/);
+    const kind = bullet ? "ul" : num ? "ol" : null;
+    if (kind) {
+      if (list !== kind) { if (list) out.push(`</${list}>`); out.push(`<${kind}>`); list = kind; }
+      out.push(`<li>${inline((bullet || num)[1])}</li>`);
+      continue;
+    }
+    if (list) { out.push(`</${list}>`); list = null; }
+    if (line) out.push(`<p>${inline(line.replace(/^#+\s*/, ""))}</p>`);
+  }
+  if (list) out.push(`</${list}>`);
+  return out.join("");
+}
+
+function add(text, who) {
+  const div = document.createElement("div");
+  div.className = "msg " + who;
+  if (who === "you") div.textContent = text; else div.innerHTML = render(text);
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+  return div;
+}
+
+async function newSession() {
+  const r = await fetch("/api/new", {method: "POST"});
+  session = (await r.json()).session;
+}
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = input.value.trim();
+  if (!text || send.disabled) return;
+  add(text, "you");
+  input.value = "";
+  send.disabled = true;
+  const typing = add("TriAgent is thinking…", "typing");
+  try {
+    if (!session) await newSession();
+    const r = await fetch("/api/chat", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({session, message: text}),
+    });
+    const data = await r.json();
+    typing.remove();
+    if (data.error) add(data.error, "error"); else add(data.reply, "bot");
+  } catch (err) {
+    typing.remove();
+    add("Couldn't reach the TriAgent server. Is it still running?", "error");
+  } finally {
+    send.disabled = false;
+    input.focus();
+  }
+});
+
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
+});
+
+document.getElementById("restart").addEventListener("click", () => {
+  session = null;
+  log.querySelectorAll(".msg:not(:first-child)").forEach(el => el.remove());
+  input.focus();
+});
+
+fetch("/api/config").then(r => r.json()).then(c => {
+  document.getElementById("fake").hidden = !c.fake_clinics;
+}).catch(() => {});
+input.focus();
+</script>
+</body>
+</html>
