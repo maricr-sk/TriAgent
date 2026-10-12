@@ -3,7 +3,9 @@ TriAgent: a command-line chat that runs the v0.2 prompt and tools.
 """
 
 import json
+import math
 import os
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -308,7 +310,8 @@ def search_places(query, lat, lng, radius_m, open_now):
         "https://places.googleapis.com/v1/places:searchText",
         body,
         "places.id,places.displayName,places.formattedAddress,places.location,"
-        "places.nationalPhoneNumber,places.currentOpeningHours.openNow,places.googleMapsUri",
+        "places.nationalPhoneNumber,places.currentOpeningHours.openNow,places.googleMapsUri,"
+        "places.primaryType,places.types",
     )
     return data.get("places", [])
 
@@ -330,6 +333,41 @@ def travel_times(lat, lng, places, mode):
     return {row["destinationIndex"]: row for row in rows if row.get("condition") == "ROUTE_EXISTS"}
 
 
+def straight_line_meters(lat, lng, point):
+    """Distance as the crow flies, used when the Routes API is unavailable."""
+    lat1, lng1 = math.radians(lat), math.radians(lng)
+    lat2, lng2 = math.radians(point["latitude"]), math.radians(point["longitude"])
+    a = (math.sin((lat2 - lat1) / 2) ** 2
+         + math.cos(lat1) * math.cos(lat2) * math.sin((lng2 - lng1) / 2) ** 2)
+    return 2 * 6371000 * math.asin(math.sqrt(a))
+
+
+def is_emergency_room(place):
+    """Hospitals and emergency departments. A text search for urgent care or a
+    clinic often returns these too, so they are filtered by level of care."""
+    types = set(place.get("types", [])) | {place.get("primaryType")}
+    name = place.get("displayName", {}).get("text", "")
+    return "hospital" in types or "general_hospital" in types or bool(
+        re.search(r"\bemergency\b|\bER\b|\bhospital\b", name, re.IGNORECASE))
+
+
+def search_level(level, lat, lng, radius_m, open_now, include_low_cost):
+    """Places for one level of care. Emergency rooms count only for the er level."""
+    queries = [LEVELS[level]["maps_search"]]
+    if include_low_cost:
+        queries.append("community health center free clinic")
+    places, seen = [], set()
+    for query in queries:
+        for place in search_places(query, lat, lng, radius_m, open_now):
+            if place["id"] in seen or is_emergency_room(place) != (level == "er"):
+                continue
+            seen.add(place["id"])
+            place["low_cost"] = query != queries[0]
+            place["level"] = level
+            places.append(place)
+    return places
+
+
 def find_care_nearby(intake, level, open_now_only=False, include_low_cost=False):
     if level == "call_911":
         return {"error": "Do not search for call_911; tell the person to call 911."}
@@ -344,45 +382,66 @@ def find_care_nearby(intake, level, open_now_only=False, include_low_cost=False)
     radius_m = value * MILE_IN_METERS if unit == "miles" else value * 1000
     if unit == "minutes":
         radius_m = 50000.0  # search wide, then filter by travel time below
-
-    queries = [LEVELS[level]["maps_search"]]
-    if include_low_cost:
-        queries.append("community health center free clinic")
-    places, seen = [], set()
-    for query in queries:
-        for place in search_places(query, lat, lng, radius_m, open_now_only):
-            if place["id"] not in seen:
-                seen.add(place["id"])
-                place["low_cost"] = query != queries[0]
-                places.append(place)
-    if not places:
-        return {"results": []}
-
     mode = TRAVEL_MODES.get(intake.get("transport"), "DRIVE")
-    routes = travel_times(lat, lng, places, mode)
-    results = []
-    for i, place in enumerate(places):
-        route = routes.get(i, {})
-        meters = route.get("distanceMeters")
-        seconds = int(route.get("duration", "0s").rstrip("s") or 0)
-        if unit == "minutes":
-            in_radius = seconds and seconds / 60 <= value
-        else:
-            in_radius = meters is not None and meters <= radius_m
-        results.append({
-            "name": place["displayName"]["text"],
-            "care_type": LEVELS[level]["label"],
-            "address": place.get("formattedAddress"),
-            "distance_miles": round(meters / MILE_IN_METERS, 1) if meters else None,
-            "travel_time_minutes": round(seconds / 60) if seconds else None,
-            "open_now": place.get("currentOpeningHours", {}).get("openNow"),
-            "phone": place.get("nationalPhoneNumber"),
-            "in_radius": bool(in_radius),
-            "low_cost": place["low_cost"],
-            "maps_url": place.get("googleMapsUri"),
-        })
+    notes = []
+
+    def results_for(places):
+        if not places:
+            return []
+        try:
+            routes = travel_times(lat, lng, places, mode)
+        except Exception as error:  # still list places, with straight-line distance
+            routes = None
+            print(f"Routes API failed, using straight-line distances: {error}")
+        results = []
+        for i, place in enumerate(places):
+            route = (routes or {}).get(i, {})
+            meters = route.get("distanceMeters")
+            if routes is None and place.get("location"):
+                meters = straight_line_meters(lat, lng, place["location"])
+            seconds = int(route.get("duration", "0s").rstrip("s") or 0)
+            if unit == "minutes":
+                in_radius = seconds and seconds / 60 <= value
+            else:
+                in_radius = meters is not None and meters <= radius_m
+            results.append({
+                "name": place["displayName"]["text"],
+                "care_type": LEVELS[place["level"]]["label"],
+                "address": place.get("formattedAddress"),
+                "distance_miles": round(meters / MILE_IN_METERS, 1) if meters else None,
+                "travel_time_minutes": round(seconds / 60) if seconds else None,
+                "open_now": place.get("currentOpeningHours", {}).get("openNow"),
+                "phone": place.get("nationalPhoneNumber"),
+                "in_radius": bool(in_radius),
+                "low_cost": place["low_cost"],
+                "maps_url": place.get("googleMapsUri"),
+            })
+        if routes is None and not any("straight-line" in n for n in notes):
+            notes.append("Travel times are unavailable; distances are straight-line, "
+                         "so say 'about N miles away' and give no drive times.")
+        return results
+
+    results = results_for(search_level(level, lat, lng, radius_m, open_now_only, include_low_cost))
+
+    # Nothing at the suggested level within the radius: offer the nearest higher
+    # level instead (for example an ER when no urgent care is close), and say so.
+    if not any(r["in_radius"] for r in results):
+        higher = sorted((l for l in LEVELS.values() if l["maps_search"] and l["rank"] > LEVELS[level]["rank"]),
+                        key=lambda l: l["rank"])
+        for step in higher:
+            extra = results_for(search_level(step["id"], lat, lng, radius_m, open_now_only, False))
+            if any(r["in_radius"] for r in extra):
+                notes.append(f"No {LEVELS[level]['label'].lower()} was found within the person's "
+                             f"radius, so these include the nearest {step['label'].lower()} options. "
+                             "Say that plainly, and that these places can also help.")
+                results += extra
+                break
+
     results.sort(key=lambda r: (not r["in_radius"], r["distance_miles"] or 9999))
-    return {"results": results}
+    answer = {"results": results}
+    if notes:
+        answer["note"] = " ".join(notes)
+    return answer
 
 
 def fake_results(level):
