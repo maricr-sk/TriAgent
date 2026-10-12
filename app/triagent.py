@@ -11,11 +11,11 @@ from pathlib import Path
 import anthropic
 import yaml
 
-ROOT = Path(__file__).resolve().parent.parent
-PROMPT_PATH = ROOT / "prompts" / "system_prompt.txt"
-TOOLS_PATH = ROOT / "prompts" / "tools.json"
-INTAKE_SCHEMA_PATH = ROOT / "schemas" / "intake_schema.json"
-RULES_PATH = ROOT / "rules" / "triage_rules.yaml"
+CONFIG = Path(__file__).resolve().parent.parent / "config"
+PROMPT_PATH = CONFIG / "system_prompt.txt"
+TOOLS_PATH = CONFIG / "tools.json"
+INTAKE_SCHEMA_PATH = CONFIG / "intake_schema.json"
+RULES_PATH = CONFIG / "triage_rules.yaml"
 
 MODEL = os.environ.get("TRIAGENT_MODEL", "claude-opus-5-5")
 MAPS_KEY = os.environ.get("MAPS_API_KEY")

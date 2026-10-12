@@ -2,7 +2,7 @@
   "name": "TriAgent",
   "image": "mcr.microsoft.com/devcontainers/python:3.12",
   "postCreateCommand": "pip install -r requirements.txt",
-  "postAttachCommand": "python web.py",
+  "postAttachCommand": "python app/web.py",
   "forwardPorts": [8000],
   "portsAttributes": {
     "8000": {

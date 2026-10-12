@@ -1,5 +1,5 @@
-"""Checks the urgency level for 20 sample cases. Run: python app/test_triage_levels.py"""
-import sys; from pathlib import Path; sys.path.insert(0, str(Path(__file__).parent)); sys.dont_write_bytecode=True
+"""Checks the urgency level for 20 sample cases. Run: python tests/test_triage_levels.py"""
+import sys; from pathlib import Path; sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app")); sys.dont_write_bytecode=True
 import triagent as t
 S=lambda c,**k: {"symptoms":[{"description":c,"complaint_id":c}],**k}
 cases=[
