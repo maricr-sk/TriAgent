@@ -1,4 +1,4 @@
-# TriAgent triage rules (draft v0.1)
+# TriAgent triage rules (draft v0.2)
 #
 # Maps a person's symptoms to a suggested level of care, and each level of care
 # to a maps search term (Google Maps Platform Places) for finding nearby
@@ -13,17 +13,22 @@
 #      and for call_911 the reply tells the person to call 911 before
 #      listing any facilities.
 #   2. Otherwise find the matching complaint in `symptom_rules`. Start at its
-#      `default_level`, apply its `escalate_if` / `deescalate_if` lists, then
-#      apply `modifiers`.
+#      `default_level`. Every `escalate_if` entry whose `if` condition holds
+#      raises the level to its `to` (the highest match wins). A
+#      `deescalate_if` entry applies only when no escalate_if matched. Then
+#      apply `modifiers`. Conditions are explained under `conditions` below.
 #   3. When unsure, or when two rules disagree, pick the higher level.
 #   4. Never de-escalate below a level set by a red flag or an escalate_if.
 #
 # Adding a complaint: copy an existing entry in `symptom_rules`, give it a new
 # `id`, list `aliases` people actually say, and cite at least one source per
-# escalate/deescalate line. Add any new source to `sources` first.
+# escalate/deescalate line. Add any new source to `sources` first. Give each
+# escalate/deescalate line an `id`, keep `when` as the plain-language version,
+# and write `if` using the condition keys below. A new sign goes in
+# `escalation_signs` first.
 
-version: 0.1
-last_reviewed: 2026-10-04
+version: 0.2
+last_reviewed: 2026-10-12
 disclaimer: >
   TriAgent offers suggestions about where to seek care. It is not a diagnosis
   or medical advice. If you think it may be an emergency, call 911 or your
@@ -166,21 +171,92 @@ red_flags:
       - black, sticky stools
     sources: [nhs_stomach_ache, medlineplus_er]
 
+# How `if` conditions work (used by escalate_if, deescalate_if and modifiers).
+# An `if` is a map; every key in it must hold (AND). Use `any_of` for OR.
+# Each key reads one field of the intake record (schemas/intake_schema.json):
+#   red_flags: [ids]             any of these red flags was recorded
+#   signs: [ids]                 any of these escalation_signs was recorded
+#   age_band: [bands]            age_band is one of these
+#   infant_age_months_min / _max infant_age_months within range (inclusive)
+#   temperature_c_min: n         measured temperature at or above n °C
+#                                (°F is converted)
+#   temperature_unknown: true    no temperature was measured
+#   pregnant: "yes"              pregnant is "yes" (quote it: bare yes is a boolean in YAML)
+#   chronic_conditions: [ids]    any of these chronic conditions
+#   trend: [values]              trend is one of these
+#   duration_days_min: n         symptoms have lasted at least n days
+#   beyond_expected_duration: true   lasted longer than the complaint's
+#                                `expected_max_days`
+#   no_modifiers: true           no modifier applies
+#   any_of: [conditions]         at least one of the nested conditions holds
+# A condition about a field the person hasn't answered is false, except
+# temperature_unknown. When a missing answer could change the level, the
+# engine reports it in `missing` so the agent can ask.
+#
+# `includes_modifiers` on an escalate_if line names modifiers the line already
+# accounts for (an infant fever rule already reflects the infant's age), so
+# those modifiers don't bump the level again.
+
+conditions_version: 1
+
+# Signs the agent records in the intake's `escalation_signs` field when the
+# person's words match. They are not red flags. Ids are used in `if` blocks.
+escalation_signs:
+  # allergic reaction
+  spreading_hives_or_swelling: Widespread hives, or swelling that is spreading, with normal breathing
+  recurring_or_unknown_trigger: Allergic reactions keep happening, or the trigger is unknown
+  # fever
+  fever_not_responding_to_medicine: Fever does not come down with fever medicine
+  uncontrolled_vomiting_or_diarrhea: Can't stop vomiting or having diarrhea
+  dehydration_signs: Signs of dehydration, such as dry diapers, sunken eyes, no tears, or very little pee
+  not_improving_with_home_care: Treated at home but not getting better
+  # chest pain
+  chest_pain_went_away_quickly: Chest pain went away quickly on its own
+  # abdominal pain
+  sudden_or_severe_pain: Sudden or severe stomach pain
+  pain_when_stomach_touched: Stomach hurts when touched or pressed
+  cannot_pass_urine_stool_or_gas: Can't pee, poo or pass gas
+  vomiting: Vomiting
+  rectal_bleeding: Bleeding from the bottom
+  diarrhea_several_days: Diarrhea for several days
+  recurring_or_worsening_stomach_pain: Stomach pain keeps coming back or getting worse
+  ongoing_bloating: Bloating that won't go away
+  unexplained_weight_loss: Losing weight without trying
+  pain_when_peeing: Pain when peeing
+  # injury or cut
+  large_or_deep_wound: Very large or deep wound
+  numbness_or_trouble_moving: Numbness or trouble moving near the injury
+  object_in_wound: Something stuck in the wound
+  bad_cut_face_or_palm: Bad cut on the face or the palm of the hand
+  deformed_limb: Suspected broken bone with a visibly bent or misshapen limb
+  cut_over_5cm: Cut longer than about 5 cm (2 inches)
+  dirt_or_pus_in_wound: Dirt, soil or pus in the wound
+  bite_human_or_wild_animal: Bitten by a person or a wild or stray animal
+  wound_infection_signs: Wound is red, swollen, more painful, has pus, or there's a fever
+  sprain_or_possible_fracture: A sprain, or a possible minor broken bone
+
 symptom_rules:
   - id: allergic_reaction
     label: Allergic reaction
     aliases: [allergy, hives, rash after eating, bee sting reaction, itchy rash]
     default_level: self_care
     default_advice: Antihistamine from a pharmacist; avoid the trigger.
+    expected_max_days: null
     escalate_if:
-      - to: call_911
+      - id: allergy_emergency
+        to: call_911
         when: any anaphylaxis or breathing red flag
+        if: {red_flags: [anaphylaxis, breathing_difficulty]}
         sources: [nhs_anaphylaxis]
-      - to: urgent_care
+      - id: allergy_spreading
+        to: urgent_care
         when: widespread hives or swelling that is spreading but breathing is normal
+        if: {signs: [spreading_hives_or_swelling]}
         sources: [medlineplus_er]
-      - to: clinic_or_telehealth
+      - id: allergy_recurring
+        to: clinic_or_telehealth
         when: reactions keep happening or the trigger is unknown (for allergy testing)
+        if: {signs: [recurring_or_unknown_trigger]}
         sources: [nhs_allergies]
     deescalate_if: []
     sources: [nhs_allergies, nhs_anaphylaxis, medlineplus_er]
@@ -190,27 +266,61 @@ symptom_rules:
     aliases: [high temperature, temp, feeling hot, chills]
     default_level: self_care
     default_advice: Rest, fluids, paracetamol or ibuprofen if uncomfortable.
+    expected_max_days: 5        # NHS: see a GP if a child's fever lasts 5 days or more
     escalate_if:
-      - to: call_911
+      - id: fever_emergency
+        to: call_911
         when: any meningitis, breathing or unresponsive red flag
+        if: {red_flags: [meningitis_signs, breathing_difficulty, unresponsive_or_seizure]}
         sources: [nhs_fever_children, medlineplus_er]
-      - to: er
+      - id: fever_not_responding
+        to: er
         when: fever that does not respond to medicine, or with uncontrolled vomiting or diarrhea
+        if: {signs: [fever_not_responding_to_medicine, uncontrolled_vomiting_or_diarrhea]}
         sources: [medlineplus_er]
-      - to: urgent_care
+      - id: fever_infant_under_3_months
+        to: urgent_care
         when: infant under 3 months at 38°C (100.4°F) or higher
+        # An unmeasured temperature counts: when unsure, pick the higher level.
+        if:
+          age_band: [infant_under_1]
+          infant_age_months_max: 2
+          any_of:
+            - {temperature_c_min: 38}
+            - {temperature_unknown: true}
+        includes_modifiers: [infant]
         sources: [nhs_fever_children]
-      - to: urgent_care
+      - id: fever_infant_3_to_6_months
+        to: urgent_care
         when: infant 3 to 6 months at 39°C (102.2°F) or higher
+        if:
+          age_band: [infant_under_1]
+          infant_age_months_min: 3
+          infant_age_months_max: 6
+          temperature_c_min: 39
+        includes_modifiers: [infant]
         sources: [nhs_fever_children]
-      - to: urgent_care
+      - id: fever_dehydration
+        to: urgent_care
         when: signs of dehydration (dry diapers, sunken eyes, no tears)
+        if: {signs: [dehydration_signs]}
         sources: [nhs_fever_children]
-      - to: clinic_or_telehealth
+      - id: fever_not_improving
+        to: clinic_or_telehealth
         when: treated at home but not improving or getting worse
+        if:
+          any_of:
+            - {signs: [not_improving_with_home_care]}
+            - {trend: [getting_worse]}
+        includes_modifiers: [worsening]
         sources: [nhs_fever_adults]
-      - to: clinic_or_telehealth
+      - id: fever_child_5_days
+        to: clinic_or_telehealth
         when: lasting 5 days or more in a child
+        if:
+          age_band: [infant_under_1, child_1_to_17]
+          duration_days_min: 5
+        includes_modifiers: [long_duration]
         sources: [nhs_fever_children]
     deescalate_if: []
     sources: [nhs_fever_adults, nhs_fever_children, medlineplus_er]
@@ -220,13 +330,22 @@ symptom_rules:
     aliases: [chest tightness, chest pressure, heart pain]
     # Higher default on purpose: chest pain is hard to rule out remotely.
     default_level: er
+    expected_max_days: null
     escalate_if:
-      - to: call_911
+      - id: chest_emergency
+        to: call_911
         when: any heart attack, breathing or stroke red flag
+        if: {red_flags: [heart_attack_signs, breathing_difficulty, stroke_signs]}
         sources: [nhs_chest_pain, cdc_heart_attack]
     deescalate_if:
-      - to: clinic_or_telehealth
+      - id: chest_brief_no_risk
+        to: clinic_or_telehealth
         when: pain comes and goes, or went away quickly, and no red flags or risk modifiers apply
+        if:
+          any_of:
+            - {trend: [comes_and_goes]}
+            - {signs: [chest_pain_went_away_quickly]}
+          no_modifiers: true
         sources: [nhs_chest_pain]
     sources: [nhs_chest_pain, cdc_heart_attack, medlineplus_er]
 
@@ -235,24 +354,39 @@ symptom_rules:
     aliases: [stomach ache, belly pain, tummy pain, cramps]
     default_level: self_care
     default_advice: Most stomach aches pass in a few days; a pharmacist can help with indigestion or constipation.
+    expected_max_days: 3        # inferred from NHS "a few days"; review before launch
     escalate_if:
-      - to: er
+      - id: abdo_severe
+        to: er
         when: sudden or severe pain, or pain when the stomach is touched
+        if: {signs: [sudden_or_severe_pain, pain_when_stomach_touched]}
         sources: [nhs_stomach_ache]
-      - to: er
+      - id: abdo_blocked
+        to: er
         when: cannot pee, poo or pass gas
+        if: {signs: [cannot_pass_urine_stool_or_gas]}
         sources: [nhs_stomach_ache]
-      - to: er
+      - id: abdo_vomiting_diabetes
+        to: er
         when: vomiting and has diabetes
+        if: {signs: [vomiting], chronic_conditions: [diabetes]}
+        includes_modifiers: [chronic_condition]
         sources: [nhs_stomach_ache]
-      - to: urgent_care
+      - id: abdo_pregnant
+        to: urgent_care
         when: pain while pregnant
+        if: {pregnant: "yes"}
+        includes_modifiers: [pregnancy]
         sources: [nhs_stomach_ache]
-      - to: urgent_care
+      - id: abdo_bleeding_or_diarrhea
+        to: urgent_care
         when: rectal bleeding, or diarrhea for several days
+        if: {signs: [rectal_bleeding, diarrhea_several_days]}
         sources: [nhs_stomach_ache]
-      - to: clinic_or_telehealth
+      - id: abdo_ongoing
+        to: clinic_or_telehealth
         when: pain that keeps coming back or getting worse, ongoing bloating, unexplained weight loss, pain when peeing
+        if: {signs: [recurring_or_worsening_stomach_pain, ongoing_bloating, unexplained_weight_loss, pain_when_peeing]}
         sources: [nhs_stomach_ache]
     deescalate_if: []
     sources: [nhs_stomach_ache]
@@ -262,61 +396,85 @@ symptom_rules:
     aliases: [cut, laceration, scrape, graze, wound, gash]
     default_level: self_care
     default_advice: Press to stop bleeding, rinse with clean water, cover with a sterile dressing.
+    expected_max_days: null
     escalate_if:
-      - to: call_911
+      - id: cut_emergency
+        to: call_911
         when: uncontrolled bleeding red flag
+        if: {red_flags: [uncontrolled_bleeding]}
         sources: [nhs_cuts]
-      - to: er
+      - id: cut_serious
+        to: er
         when: very large or deep wound, numbness or trouble moving near it, or something stuck in it
+        if: {signs: [large_or_deep_wound, numbness_or_trouble_moving, object_in_wound]}
         sources: [nhs_cuts, medlineplus_er]
-      - to: er
+      - id: cut_face_or_palm
+        to: er
         when: bad cut on the face or palm of the hand
+        if: {signs: [bad_cut_face_or_palm]}
         sources: [nhs_cuts]
-      - to: er
+      - id: injury_deformity
+        to: er
         when: suspected broken bone with visible deformity
+        if: {signs: [deformed_limb]}
         sources: [medlineplus_er]
-      - to: urgent_care
+      - id: cut_long_or_dirty
+        to: urgent_care
         when: cut longer than about 5 cm (2 inches), or dirt, soil or pus in it
+        if: {signs: [cut_over_5cm, dirt_or_pus_in_wound]}
         sources: [nhs_cuts]
-      - to: urgent_care
+      - id: bite
+        to: urgent_care
         when: bitten by a person or a wild or stray animal
+        if: {signs: [bite_human_or_wild_animal]}
         sources: [nhs_cuts]
-      - to: urgent_care
+      - id: wound_infection
+        to: urgent_care
         when: signs of infection (red, swollen, more painful, pus) or a fever
+        if: {signs: [wound_infection_signs]}
         sources: [nhs_cuts]
-      - to: urgent_care
+      - id: sprain_or_fracture
+        to: urgent_care
         when: sprain or suspected minor fracture
+        if: {signs: [sprain_or_possible_fracture]}
         sources: [medlineplus_er]
     deescalate_if: []
     sources: [nhs_cuts, medlineplus_er]
 
 # Applied after the symptom rule. Each bumps the level up by `bump` ranks
 # (capped at er; only red flags reach call_911). Bumps do not stack beyond +1
-# total, to avoid sending every older adult with a cold to the ER.
+# total, to avoid sending every older adult with a cold to the ER. A modifier
+# named in a matched escalate_if line's `includes_modifiers` is skipped.
 modifiers:
   - id: infant
     when: age under 1 year
+    if: {age_band: [infant_under_1]}
     bump: 1
     sources: [nhs_fever_children]
   - id: older_adult
     when: age 65 or older
+    if: {age_band: [adult_65_plus]}
     bump: 1
     notes: Inferred caution; no single source sets this threshold. Review before launch.
     sources: []
   - id: pregnancy
     when: currently pregnant
+    if: {pregnant: "yes"}
     bump: 1
     sources: [nhs_stomach_ache]
   - id: worsening
     when: symptoms getting worse despite home care
+    if: {trend: [getting_worse]}
     bump: 1
     sources: [nhs_fever_adults, nhs_stomach_ache, nhs_cuts]
   - id: long_duration
     when: symptoms lasting longer than the complaint's expected course (e.g. fever 5+ days, diarrhea several days)
+    if: {beyond_expected_duration: true}
     bump: 1
     sources: [nhs_fever_children, nhs_stomach_ache]
   - id: chronic_condition
     when: diabetes, weakened immune system, or heart or lung disease
+    if: {chronic_conditions: [diabetes, weakened_immune_system, heart_disease, lung_disease]}
     bump: 1
     notes: Partly inferred; NHS cites diabetes with vomiting specifically.
     sources: [nhs_stomach_ache]
