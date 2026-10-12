@@ -1,0 +1,40 @@
+[
+  {
+    "name": "record_intake",
+    "description": "Save facts the person has given about their symptoms, situation, location and travel radius. Call it every time you learn a new fact; pass only the new fields, and the app merges them into one intake record. Record red flags as soon as you spot them. Returns the merged intake record and missing_required, a list of required fields still missing (location and travel_radius before a facility search; at least one symptom or red flag before get_care_level).",
+    "input_schema": { "$ref": "../../schemas/intake_schema.json" }
+  },
+  {
+    "name": "get_care_level",
+    "description": "Get the suggested level of care from TriAgent's triage rules (triage/triage_rules.yaml), based on the current intake record. Red flags are checked first, then the symptom rule, then modifiers; when unsure the higher level wins. Call it after the main symptoms and any red flags are recorded, and again if the person adds a symptom or says it's getting worse. Use the returned level as given and never lower it. Returns: level (call_911, er, urgent_care, clinic_or_telehealth, or self_care), label, reason (one plain-language sentence), rule_id (the red flag or symptom rule that fired), watch_for (signs that would mean a higher level), and missing (facts that would change the answer, if any).",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    }
+  },
+  {
+    "name": "find_care_nearby",
+    "description": "Find facilities for a level of care near the person, using Google Maps Platform (Places for facilities, Distance Matrix for travel time). Location, travel radius and transport come from the intake record, which must have location and travel_radius. Never call it for call_911. Returns up to 8 results, each with name, care_type, address, distance, travel_time, open_now, phone, in_radius (false means outside the person's radius), low_cost (community health center or free clinic) and maps_url. Returns an empty list if nothing is found.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level"],
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["er", "urgent_care", "clinic_or_telehealth", "self_care"],
+          "description": "The level exactly as get_care_level returned it."
+        },
+        "open_now_only": {
+          "type": "boolean",
+          "description": "True to return only places open now. Use for er and urgent_care, or when the person needs care today."
+        },
+        "include_low_cost": {
+          "type": "boolean",
+          "description": "True to also search community health centers and free clinics. Use when the person has no insurance or mentions cost."
+        }
+      }
+    }
+  }
+]
