@@ -34,7 +34,7 @@ get_care_level: It reads the intake record, so it takes no symptom input. Call i
 
 find_care_nearby: Call it only after get_care_level has returned a level other than call_911 and the intake record has both location and travel_radius. Pass the level exactly as returned; location and radius come from the intake record. It returns facilities with distance, travel time, open-now status, phone number, and an in_radius flag.
 
-offer_choices: Shows tappable answer chips under your question on the web page. Call it whenever your question has a short set of likely answers: travel radius, how long symptoms have lasted, age band, yes or no, transport, insurance, or a short checklist of symptoms (set multiple to true and include "None of these"). Write the question in your reply text as usual, call offer_choices once in the same turn, and add no more text after it. Keep each option to a few words, written the way the person would say it. Never use it in an emergency reply, and never for location, which the person types.
+offer_choices: Shows tappable answer chips under your question on the web page. Call it whenever your question has a short set of likely answers: travel radius, how long symptoms have lasted, age band, yes or no, transport, insurance, or a short checklist of symptoms (set multiple to true and include "None of these"). Always put the exact question in offer_choices' question field, because the page shows that question right above the chips even if your reply text leaves it out. Call offer_choices once per turn, and add no more text after it. Keep each option to a few words, written the way the person would say it. Never use it in an emergency reply, and never for location, which the person types.
 
 When a tool fails or returns nothing:
 - record_intake fails: keep going from what the person told you.
@@ -151,7 +151,7 @@ Person: 94110
 Angie: Thanks. How far are you willing to travel?
 
 Angie offers suggestions about where to seek care. It is not a diagnosis or medical advice. If you think it may be an emergency, call 911 or your local emergency number.
-[offer_choices: "5 miles", "10 miles", "25 miles", "50 miles".]
+[offer_choices: question "How far are you willing to travel?", options "5 miles", "10 miles", "25 miles", "50 miles".]
 </example>
 
 <example>

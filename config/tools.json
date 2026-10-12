@@ -6,7 +6,7 @@
   },
   {
     "name": "get_care_level",
-    "description": "Get the suggested level of care from TriAgent's triage rules (triage/triage_rules.yaml), based on the current intake record. Red flags are checked first, then the symptom rule, then modifiers; when unsure the higher level wins. Call it after the main symptoms and any red flags are recorded, and again if the person adds a symptom or says it's getting worse. Use the returned level as given and never lower it. Returns: level (call_911, er, urgent_care, clinic_or_telehealth, or self_care), label, reason (one plain-language sentence), rule_id (the red flag or symptom rule that fired), watch_for (signs that would mean a higher level), and missing (facts that would change the answer, if any).",
+    "description": "Get the suggested level of care from TriAgent's triage rules (triage/triage_rules.yaml), based on the current intake record. Red flags are checked first, then the symptom rule, then modifiers; when unsure the higher level wins. Call it after the main symptoms and any red flags are recorded, and again if the person adds a symptom or says it's getting worse. Use the returned level as given and never lower it. Returns: level (call_911, er, urgent_care, clinic_or_telehealth, or self_care), label, reason (one plain-language sentence), rule_id (the red flag or symptom rule that fired), watch_for (signs that would mean a higher level), modifiers, and missing (unanswered intake fields that could raise the level; ask about these before searching).",
     "input_schema": {
       "type": "object",
       "additionalProperties": false,
@@ -39,12 +39,17 @@
   },
   {
     "name": "offer_choices",
-    "description": "Show tappable answer chips under your question on the web page, so the person can answer with one tap instead of typing. Call it whenever your question has a short set of likely answers: travel radius, how long symptoms have lasted, age band, yes or no, transport, insurance, or a short checklist of symptoms. Write the question in your reply text as usual, then call this tool once in the same turn. The person can always type something else instead. Never call it in an emergency reply. Returns {\"shown\": true}; add no more text after calling it.",
+    "description": "Show tappable answer chips under your question on the web page, so the person can answer with one tap instead of typing. Call it whenever your question has a short set of likely answers: travel radius, how long symptoms have lasted, age band, yes or no, transport, insurance, or a short checklist of symptoms. Put the question in the question field (and in your reply text too, if you like); the page always shows the question above the chips. Call this tool once per turn. The person can always type something else instead. Never call it in an emergency reply. Returns {\"shown\": true}; add no more text after calling it.",
     "input_schema": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["options"],
+      "required": ["question", "options"],
       "properties": {
+        "question": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "The one question you are asking, as a short sentence (for example \"How far are you willing to travel?\")."
+        },
         "options": {
           "type": "array",
           "minItems": 2,

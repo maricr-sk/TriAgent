@@ -4,6 +4,7 @@ TriAgent: a command-line chat that runs the v0.2 prompt and tools.
 
 import json
 import os
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -261,8 +262,18 @@ def google_request(url, body=None, field_mask=None):
         headers["X-Goog-FieldMask"] = field_mask
     data = json.dumps(body).encode() if body is not None else None
     request = urllib.request.Request(url, data=data, headers=headers)
-    with urllib.request.urlopen(request, timeout=15) as response:
-        return json.loads(response.read())
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            return json.loads(response.read())
+    except urllib.error.HTTPError as error:
+        # Name the API and pass on Google's own explanation (for example
+        # "Places API (New) has not been used in project ... or it is disabled").
+        try:
+            message = json.loads(error.read())["error"]["message"]
+        except Exception:
+            message = str(error)
+        api = urllib.parse.urlparse(url).netloc.split(".")[0]
+        raise RuntimeError(f"Google {api} API error {error.code}: {message}") from None
 
 
 def geocode(location_text):
@@ -272,8 +283,11 @@ def geocode(location_text):
         f"https://maps.googleapis.com/maps/api/geocode/json?{query}", timeout=15
     ) as response:
         data = json.loads(response.read())
+    if data.get("status") == "ZERO_RESULTS":
+        raise ValueError("Could not find that location.")
     if data.get("status") != "OK":
-        raise ValueError(f"Could not find that location ({data.get('status')}).")
+        raise RuntimeError(f"Google Geocoding API error {data.get('status')}: "
+                           f"{data.get('error_message', 'no details')}")
     point = data["results"][0]["geometry"]["location"]
     return point["lat"], point["lng"]
 
@@ -455,6 +469,10 @@ def chat():
                 except Exception as error:  # report tool failures back to Claude
                     output, is_error = {"error": str(error)}, True
                 if block.name == "offer_choices":
+                    question = block.input.get("question", "")
+                    said = " ".join(b.text for b in response.content if b.type == "text")
+                    if question and question not in said:
+                        print(f"\nAngie: {question}")
                     print("  Options: " + " · ".join(block.input.get("options", [])))
                 if os.environ.get("TRIAGENT_DEBUG"):
                     print(f"  [{block.name}] {json.dumps(output)[:300]}")
