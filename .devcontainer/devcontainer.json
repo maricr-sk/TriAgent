@@ -1,0 +1,21 @@
+{
+  "name": "TriAgent",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "postCreateCommand": "pip install -r requirements.txt",
+  "postAttachCommand": "python web.py",
+  "forwardPorts": [8000],
+  "portsAttributes": {
+    "8000": {
+      "label": "TriAgent",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "secrets": {
+    "ANTHROPIC_API_KEY": {
+      "description": "Your Claude API key, from console.anthropic.com."
+    },
+    "MAPS_API_KEY": {
+      "description": "Optional. Google Maps Platform key with Places API (New), Routes API and Geocoding API. Leave empty to use fake clinics for testing."
+    }
+  }
+}
