@@ -208,9 +208,22 @@ function addError(text) {
 
 const pause = ms => new Promise(r => setTimeout(r, matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : ms));
 
-// Show Angie's reply one short text at a time.
-async function showReply(text) {
+const squash = s => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+// Show Angie's reply one short text at a time. When chips come with it, make sure
+// their question is shown too: if the reply text doesn't already ask it, it goes in
+// as its own text just before the small print.
+async function showReply(text, choices) {
   const list = parts(text);
+  const question = (choices && choices.question) || "";
+  if (choices) {
+    if (question && !squash(text).includes(squash(question))) {
+      const at = list.findIndex(p => DISCLAIMER.test(p));
+      list.splice(at === -1 ? list.length : at, 0, question);
+    } else if (!list.some(p => !DISCLAIMER.test(p))) {
+      list.unshift("Which of these fits best?");
+    }
+  }
   for (let i = 0; i < list.length; i++) {
     const part = list[i];
     if (DISCLAIMER.test(part)) { addFine(part); continue; }
@@ -291,8 +304,9 @@ async function submit(text, fromChip = false) {
     typing.remove();
     if (data.error) addError(data.error);
     else {
-      await showReply(data.reply || "");
-      if (data.choices && data.choices.options && data.choices.options.length) {
+      const choices = data.choices && data.choices.options && data.choices.options.length ? data.choices : null;
+      await showReply(data.reply || "", choices);
+      if (choices) {
         await pause(250);
         addChips(data.choices.options, data.choices.multiple);
       }

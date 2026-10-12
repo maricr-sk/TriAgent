@@ -64,7 +64,8 @@ def take_turn(session, text):
             except Exception as error:  # report tool failures back to Claude
                 output, is_error = {"error": str(error)}, True
             if block.name == "offer_choices":
-                choices = {"options": [str(o)[:40] for o in block.input.get("options", [])][:6],
+                choices = {"question": str(block.input.get("question", "")).strip()[:200],
+                           "options": [str(o)[:40] for o in block.input.get("options", [])][:6],
                            "multiple": bool(block.input.get("multiple"))}
             if os.environ.get("TRIAGENT_DEBUG"):
                 print(f"  [{block.name}] {json.dumps(output)[:300]}")

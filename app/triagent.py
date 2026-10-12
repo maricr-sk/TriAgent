@@ -455,6 +455,10 @@ def chat():
                 except Exception as error:  # report tool failures back to Claude
                     output, is_error = {"error": str(error)}, True
                 if block.name == "offer_choices":
+                    question = block.input.get("question", "")
+                    said = " ".join(b.text for b in response.content if b.type == "text")
+                    if question and question not in said:
+                        print(f"\nAngie: {question}")
                     print("  Options: " + " · ".join(block.input.get("options", [])))
                 if os.environ.get("TRIAGENT_DEBUG"):
                     print(f"  [{block.name}] {json.dumps(output)[:300]}")
