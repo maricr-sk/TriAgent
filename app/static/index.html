@@ -217,27 +217,32 @@ const pause = ms => new Promise(r => setTimeout(r, matchMedia("(prefers-reduced-
 
 const squash = s => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
-// Show Angie's reply one short text at a time. When chips come with it, make sure
-// their question is shown too: if the reply text doesn't already ask it, it goes in
-// as its own text just before the small print.
+// Show Angie's reply one short text at a time. When chips come with it, their
+// question is always the last text, right above the chips, and the small print
+// follows the chips. If the reply text doesn't ask the question, it is added.
 async function showReply(text, choices) {
-  const list = parts(text);
-  const question = (choices && choices.question) || "";
+  let list = parts(text);
+  const fine = list.filter(p => DISCLAIMER.test(p));
+  list = list.filter(p => !DISCLAIMER.test(p));
   if (choices) {
-    if (question && !squash(text).includes(squash(question))) {
-      const at = list.findIndex(p => DISCLAIMER.test(p));
-      list.splice(at === -1 ? list.length : at, 0, question);
-    } else if (!list.some(p => !DISCLAIMER.test(p))) {
-      list.unshift("Which of these fits best?");
+    const question = choices.question || "";
+    if (question) {
+      list = list.filter(p => !squash(p).includes(squash(question)));
+      list.push(question);
+    } else if (!list.length) {
+      list.push("Which of these fits best?");
     }
   }
   for (let i = 0; i < list.length; i++) {
-    const part = list[i];
-    if (DISCLAIMER.test(part)) { addFine(part); continue; }
-    const urgent = i === 0 && /call 911|local emergency number/i.test(part);
+    const urgent = i === 0 && /call 911|local emergency number/i.test(list[i]);
     if (i > 0) await pause(450);
-    addAngie(part, urgent ? "urgent" : "");
+    addAngie(list[i], urgent ? "urgent" : "");
   }
+  if (choices) {
+    await pause(250);
+    addChips(choices.options, choices.multiple);
+  }
+  fine.forEach(addFine);
 }
 
 function clearChips() {
@@ -313,10 +318,6 @@ async function submit(text, fromChip = false) {
     else {
       const choices = data.choices && data.choices.options && data.choices.options.length ? data.choices : null;
       await showReply(data.reply || "", choices);
-      if (choices) {
-        await pause(250);
-        addChips(data.choices.options, data.choices.multiple);
-      }
     }
   } catch (err) {
     typing.remove();

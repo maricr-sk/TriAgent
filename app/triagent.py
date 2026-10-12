@@ -2,6 +2,7 @@
 TriAgent: a command-line chat that runs the v0.2 prompt and tools.
 """
 
+import copy
 import json
 import math
 import os
@@ -462,6 +463,10 @@ def fake_results(level):
 # ---------------------------------------------------------------------------
 
 def run_tool(name, tool_input, intake):
+    # Work on a copy. Claude's tool_use blocks stay in the history and are sent back
+    # every turn; if the intake shared their dicts, later updates would rewrite those
+    # earlier blocks, and Claude rejects the changed history (thinking signature 400).
+    tool_input = copy.deepcopy(tool_input)
     if name == "record_intake":
         return record_intake(intake, tool_input)
     if name == "get_care_level":
@@ -485,10 +490,10 @@ def add_user_text(messages, text):
         messages.append({"role": "user", "content": text})
 
 
-def only_choices(response):
-    """True when Claude's only tool call this round is offer_choices, so its reply is done."""
-    calls = [b for b in response.content if b.type == "tool_use"]
-    return bool(calls) and all(b.name == "offer_choices" for b in calls)
+def asked_with_choices(response):
+    """True when Claude called offer_choices this round. Its question is asked, so the
+    turn ends here; calling Claude again only adds a stray "waiting for your answer"."""
+    return any(b.type == "tool_use" and b.name == "offer_choices" for b in response.content)
 
 
 def chat():
@@ -538,7 +543,7 @@ def chat():
                 results.append({"type": "tool_result", "tool_use_id": block.id,
                                 "content": json.dumps(output), "is_error": is_error})
             messages.append({"role": "user", "content": results})
-            if only_choices(response):
+            if asked_with_choices(response):
                 break  # the question and its options are shown; wait for the person
 
 
