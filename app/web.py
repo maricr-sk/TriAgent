@@ -67,6 +67,8 @@ def take_turn(session, text):
                 choices = {"question": str(block.input.get("question", "")).strip()[:200],
                            "options": [str(o)[:40] for o in block.input.get("options", [])][:6],
                            "multiple": bool(block.input.get("multiple"))}
+            if is_error:  # e.g. a Maps API that isn't enabled; shows in the server log
+                print(f"Tool {block.name} failed: {output['error']}")
             if os.environ.get("TRIAGENT_DEBUG"):
                 print(f"  [{block.name}] {json.dumps(output)[:300]}")
             results.append({"type": "tool_result", "tool_use_id": block.id,

@@ -38,6 +38,7 @@
   header { padding-top: 18px; padding-bottom: 10px; display: flex; align-items: center; gap: 12px; }
   .avatar { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
     background: var(--accent); color: var(--accent-text); font: 800 14px/1 var(--font-display); }
+  .avatar::before { content: "A"; }  /* drawn by CSS so copied chats don't pick up stray "A" lines */
   header .avatar { width: 40px; height: 40px; font-size: 18px; }
   header h1 { font: 800 22px/1.1 var(--font-display); margin: 0; }
   header p { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
@@ -90,7 +91,7 @@
 </head>
 <body>
 <header>
-  <div class="avatar" aria-hidden="true">A</div>
+  <div class="avatar" aria-hidden="true"></div>
   <div>
     <h1>Angie</h1>
     <p>Your care guide · TriAgent</p>
@@ -181,7 +182,7 @@ function addAngie(text, extraClass = "") {
   if (prev && prev.classList.contains("row")) prev.classList.remove("last");
   const row = document.createElement("div");
   row.className = "row last";
-  row.innerHTML = '<div class="avatar" aria-hidden="true">A</div>';
+  row.innerHTML = '<div class="avatar" aria-hidden="true"></div>';
   const div = document.createElement("div");
   div.className = ("msg " + extraClass).trim();
   div.innerHTML = render(text);
