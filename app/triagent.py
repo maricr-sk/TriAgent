@@ -424,7 +424,7 @@ def chat():
     tools = load_tools()
     messages, intake = [], {}
     print("Angie, from TriAgent (type 'quit' to stop)."
-          + ("" if MAPS_KEY else " No GOOGLE_MAPS_API_KEY set: using fake clinics."))
+          + ("" if MAPS_KEY else " No MAPS_API_KEY set: using fake clinics."))
 
     while True:
         text = input("\nYou: ").strip()
