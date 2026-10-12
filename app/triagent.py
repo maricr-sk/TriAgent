@@ -397,7 +397,25 @@ def run_tool(name, tool_input, intake):
         return result
     if name == "find_care_nearby":
         return find_care_nearby(intake, **tool_input)
+    if name == "offer_choices":
+        return {"shown": True}  # the web page draws the chips; nothing to compute
     return {"error": f"Unknown tool {name}"}
+
+
+def add_user_text(messages, text):
+    """Add the person's message. A turn that ended on offer_choices leaves its tool
+    result as the last user message, so the new text joins that message."""
+    last = messages[-1] if messages else None
+    if last and last["role"] == "user" and isinstance(last["content"], list):
+        last["content"].append({"type": "text", "text": text})
+    else:
+        messages.append({"role": "user", "content": text})
+
+
+def only_choices(response):
+    """True when Claude's only tool call this round is offer_choices, so its reply is done."""
+    calls = [b for b in response.content if b.type == "tool_use"]
+    return bool(calls) and all(b.name == "offer_choices" for b in calls)
 
 
 def chat():
@@ -405,14 +423,14 @@ def chat():
     system_prompt = PROMPT_PATH.read_text()
     tools = load_tools()
     messages, intake = [], {}
-    print("TriAgent (type 'quit' to stop)."
-          + ("" if MAPS_KEY else " No GOOGLE_MAPS_API_KEY set: using fake clinics."))
+    print("Angie, from TriAgent (type 'quit' to stop)."
+          + ("" if MAPS_KEY else " No MAPS_API_KEY set: using fake clinics."))
 
     while True:
         text = input("\nYou: ").strip()
         if text.lower() in ("quit", "exit"):
             break
-        messages.append({"role": "user", "content": text})
+        add_user_text(messages, text)
 
         # Keep calling Claude until it answers with text instead of tool calls.
         while True:
@@ -423,7 +441,7 @@ def chat():
             messages.append({"role": "assistant", "content": response.content})
             for block in response.content:
                 if block.type == "text" and block.text.strip():
-                    print(f"\nTriAgent: {block.text}")
+                    print(f"\nAngie: {block.text}")
             if response.stop_reason != "tool_use":
                 break
 
@@ -436,11 +454,15 @@ def chat():
                     is_error = "error" in output
                 except Exception as error:  # report tool failures back to Claude
                     output, is_error = {"error": str(error)}, True
+                if block.name == "offer_choices":
+                    print("  Options: " + " · ".join(block.input.get("options", [])))
                 if os.environ.get("TRIAGENT_DEBUG"):
                     print(f"  [{block.name}] {json.dumps(output)[:300]}")
                 results.append({"type": "tool_result", "tool_use_id": block.id,
                                 "content": json.dumps(output), "is_error": is_error})
             messages.append({"role": "user", "content": results})
+            if only_choices(response):
+                break  # the question and its options are shown; wait for the person
 
 
 if __name__ == "__main__":

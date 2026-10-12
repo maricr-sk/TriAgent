@@ -39,10 +39,11 @@ def get_session(session_id):
 
 
 def take_turn(session, text):
-    """One user message in, TriAgent's reply text out. Same loop as triagent.chat()."""
+    """One user message in; Angie's reply text and any answer chips out.
+    Same loop as triagent.chat()."""
     messages, intake = session["messages"], session["intake"]
-    messages.append({"role": "user", "content": text})
-    replies = []
+    triagent.add_user_text(messages, text)
+    replies, choices = [], None
     while True:
         response = client().messages.create(
             model=triagent.MODEL, max_tokens=1500, system=SYSTEM_PROMPT,
@@ -62,12 +63,17 @@ def take_turn(session, text):
                 is_error = "error" in output
             except Exception as error:  # report tool failures back to Claude
                 output, is_error = {"error": str(error)}, True
+            if block.name == "offer_choices":
+                choices = {"options": [str(o)[:40] for o in block.input.get("options", [])][:6],
+                           "multiple": bool(block.input.get("multiple"))}
             if os.environ.get("TRIAGENT_DEBUG"):
                 print(f"  [{block.name}] {json.dumps(output)[:300]}")
             results.append({"type": "tool_result", "tool_use_id": block.id,
                             "content": json.dumps(output), "is_error": is_error})
         messages.append({"role": "user", "content": results})
-    return "\n\n".join(replies)
+        if triagent.only_choices(response):
+            break  # the question and its chips are ready; wait for the person
+    return "\n\n".join(replies), choices
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -106,13 +112,13 @@ class Handler(BaseHTTPRequestHandler):
         with session["lock"]:  # one turn at a time per conversation
             before = len(session["messages"])
             try:
-                reply = take_turn(session, text)
+                reply, choices = take_turn(session, text)
             except Exception as error:
                 del session["messages"][before:]  # drop the half-finished turn
                 print(f"Error: {error!r}")
-                return self.send(502, {"error": "TriAgent couldn't reach Claude. "
+                return self.send(502, {"error": "Angie couldn't reach Claude. "
                                        "Check ANTHROPIC_API_KEY and try again."})
-        self.send(200, {"reply": reply})
+        self.send(200, {"reply": reply, "choices": choices})
 
     def log_message(self, fmt, *args):  # keep the terminal quiet; no message text logged
         pass
