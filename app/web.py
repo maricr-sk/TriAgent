@@ -12,7 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import triagent  # noqa: E402  (reuses the prompt, tools and triage rules)
 
-PAGE = (Path(__file__).resolve().parent / "web" / "index.html").read_bytes()
+PAGE = (Path(__file__).resolve().parent / "static" / "index.html").read_bytes()
 HOST = os.environ.get("HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORT", "8000"))
 MAX_MESSAGE_CHARS = 4000
