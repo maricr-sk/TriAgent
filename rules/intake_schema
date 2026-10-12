@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/maricr-sk/TriAgent/schemas/intake_schema.json",
+  "title": "record_intake",
+  "description": "Draft v0.1 (2026-10-12). Facts TriAgent gathers before suggesting a level of care. Use as the input_schema of the record_intake tool. The model calls it as it learns facts, so every field is optional per call; the app merges calls into one intake record. Before a facility search the merged record must have location and travel_radius; before get_care_level it must have at least one symptom or red flag. Never collect a name, date of birth or full address unless the person offers it. Not clinically reviewed.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "symptoms": {
+      "description": "Each main symptom the person describes, in their own words, mapped to a complaint id from triage_rules.yaml symptom_rules when one fits.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["description"],
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "The symptom in the person's words, e.g. 'itchy rash on my arms after dinner'."
+          },
+          "complaint_id": {
+            "type": "string",
+            "enum": ["allergic_reaction", "fever", "chest_pain", "abdominal_pain", "minor_injury_cut", "other"],
+            "description": "Matching symptom_rules id. Use 'other' when nothing fits; the engine then applies tie_break (pick the higher level)."
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["mild", "moderate", "severe", "unknown"],
+            "description": "Severity as the person describes it. Don't press for a number."
+          }
+        }
+      }
+    },
+    "red_flags": {
+      "description": "Red flag ids from triage_rules.yaml the person's words match. Record these first: any call_911 match means the 911 instruction comes before anything else, even with no location yet.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "breathing_difficulty",
+          "anaphylaxis",
+          "heart_attack_signs",
+          "stroke_signs",
+          "unresponsive_or_seizure",
+          "uncontrolled_bleeding",
+          "meningitis_signs",
+          "self_harm_or_overdose",
+          "vomiting_blood"
+        ]
+      }
+    },
+    "feels_like_emergency": {
+      "type": "boolean",
+      "description": "True if the person says it feels like an emergency. Treated like a call_911 red flag."
+    },
+    "escalation_details": {
+      "description": "Short facts that may match a complaint's escalate_if lines but are not red flags, e.g. 'swelling spreading, breathing normal', 'cut about 3 inches long', 'no wet diapers since morning', 'can't pass gas'. One fact per item.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "onset": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "When the symptoms started. Feeds the long_duration modifier.",
+      "properties": {
+        "started": {
+          "type": "string",
+          "description": "In the person's words, e.g. 'last night', 'about 3 days ago'."
+        },
+        "duration_value": { "type": "number", "minimum": 0 },
+        "duration_unit": { "type": "string", "enum": ["minutes", "hours", "days", "weeks", "months"] },
+        "sudden": {
+          "type": "boolean",
+          "description": "True if it came on suddenly. Matters for abdominal pain and headache."
+        }
+      }
+    },
+    "trend": {
+      "type": "string",
+      "enum": ["getting_worse", "about_the_same", "getting_better", "comes_and_goes", "unknown"],
+      "description": "getting_worse feeds the worsening modifier; comes_and_goes matters for the chest_pain de-escalation."
+    },
+    "home_care_tried": {
+      "type": "string",
+      "description": "What they've already tried at home, if anything, e.g. 'took ibuprofen, didn't help'. A fever that doesn't respond to medicine escalates to ER."
+    },
+    "temperature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unit"],
+      "description": "Measured temperature, only if they have taken it. Infant fever thresholds depend on it.",
+      "properties": {
+        "value": { "type": "number" },
+        "unit": { "type": "string", "enum": ["F", "C"] }
+      }
+    },
+    "age_band": {
+      "type": "string",
+      "enum": ["infant_under_1", "child_1_to_17", "adult_18_to_64", "adult_65_plus", "unknown"],
+      "description": "Age band of the person who is unwell (who may not be the person typing). infant_under_1 and adult_65_plus feed modifiers."
+    },
+    "infant_age_months": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 11,
+      "description": "Only for infant_under_1. Fever rules differ for under 3 months and 3 to 6 months."
+    },
+    "for_someone_else": {
+      "type": "boolean",
+      "description": "True if the person is asking on behalf of someone else (a child, a parent)."
+    },
+    "pregnant": {
+      "type": "string",
+      "enum": ["yes", "no", "unknown", "not_asked"],
+      "description": "Ask only when relevant. 'yes' feeds the pregnancy modifier."
+    },
+    "chronic_conditions": {
+      "description": "Long-term conditions that feed the chronic_condition modifier. Use 'none' if they say they have none.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": ["diabetes", "weakened_immune_system", "heart_disease", "lung_disease", "other", "none"]
+      }
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text"],
+      "description": "Where the person is starting from. Always required before a facility search; never guess it.",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "As given, e.g. 'Austin, TX' or '78704'. A city or ZIP is enough."
+        },
+        "kind": { "type": "string", "enum": ["city_state", "zip", "address", "device_location"] }
+      }
+    },
+    "travel_radius": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unit"],
+      "description": "How far they're willing or able to travel. Always required before a facility search; never assume it. Results beyond it are labeled 'outside your radius'.",
+      "properties": {
+        "value": { "type": "number", "exclusiveMinimum": 0 },
+        "unit": { "type": "string", "enum": ["miles", "km", "minutes"] }
+      }
+    },
+    "transport": {
+      "type": "string",
+      "enum": ["car", "transit", "walking", "rideshare", "other", "unknown"],
+      "description": "How they're getting there; sets the Distance Matrix travel mode. Ask only if natural."
+    },
+    "insurance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "description": "Optional. Ask only when it would help choose between options. 'none' is an equal answer and puts community health centers and free clinics first.",
+      "properties": {
+        "type": { "type": "string", "enum": ["medicare", "medicaid", "private", "none", "prefer_not_to_say"] },
+        "insurer": { "type": "string", "description": "Insurer name, only for private and only if offered." }
+      }
+    },
+    "language": {
+      "type": "string",
+      "description": "Language the person is writing in, as a BCP 47 code (e.g. 'en', 'es'). Replies follow it."
+    }
+  },
+  "examples": [
+    {
+      "symptoms": [
+        { "description": "itchy hives on my arms after eating shrimp", "complaint_id": "allergic_reaction", "severity": "mild" }
+      ],
+      "red_flags": [],
+      "escalation_details": ["hives on both arms, not spreading, breathing normal, no lip swelling"],
+      "onset": { "started": "about an hour ago", "duration_value": 1, "duration_unit": "hours", "sudden": true },
+      "trend": "about_the_same",
+      "age_band": "adult_18_to_64",
+      "pregnant": "no",
+      "chronic_conditions": ["none"],
+      "location": { "text": "78704", "kind": "zip" },
+      "travel_radius": { "value": 10, "unit": "miles" },
+      "transport": "car",
+      "language": "en"
+    },
+    {
+      "symptoms": [
+        { "description": "baby has a fever and won't feed well", "complaint_id": "fever", "severity": "moderate" }
+      ],
+      "temperature": { "value": 100.8, "unit": "F" },
+      "age_band": "infant_under_1",
+      "infant_age_months": 2,
+      "for_someone_else": true,
+      "onset": { "started": "this morning", "duration_value": 8, "duration_unit": "hours" },
+      "trend": "getting_worse",
+      "location": { "text": "Columbus, OH", "kind": "city_state" },
+      "travel_radius": { "value": 25, "unit": "miles" },
+      "insurance": { "type": "medicaid" }
+    },
+    {
+      "symptoms": [
+        { "description": "crushing chest pain going down my left arm", "complaint_id": "chest_pain", "severity": "severe" }
+      ],
+      "red_flags": ["heart_attack_signs"],
+      "age_band": "adult_65_plus"
+    }
+  ]
+}
