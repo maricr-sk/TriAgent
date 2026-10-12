@@ -74,7 +74,7 @@ def take_turn(session, text):
             results.append({"type": "tool_result", "tool_use_id": block.id,
                             "content": json.dumps(output), "is_error": is_error})
         messages.append({"role": "user", "content": results})
-        if triagent.only_choices(response):
+        if triagent.asked_with_choices(response):
             break  # the question and its chips are ready; wait for the person
     return "\n\n".join(replies), choices
 
