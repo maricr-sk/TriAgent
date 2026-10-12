@@ -79,6 +79,22 @@ def take_turn(session, text):
     return "\n\n".join(replies), choices
 
 
+def friendly_error(error):
+    """A short, accurate message for the page. Full details go to the server log."""
+    anthropic = triagent.anthropic
+    if isinstance(error, anthropic.AuthenticationError):
+        return "Angie couldn't sign in to Claude. Check ANTHROPIC_API_KEY and try again."
+    if isinstance(error, anthropic.NotFoundError):
+        return f"Claude doesn't recognize the model {triagent.MODEL}. Check TRIAGENT_MODEL."
+    if isinstance(error, anthropic.BadRequestError):
+        return "Claude couldn't read that request. The server log has the details (look for \"Error:\")."
+    if isinstance(error, (anthropic.RateLimitError, anthropic.InternalServerError)):
+        return "Claude is busy right now. Please try again in a moment."
+    if isinstance(error, anthropic.APIConnectionError):
+        return "Angie couldn't reach Claude. Check the server's internet connection and try again."
+    return "Something went wrong on the TriAgent server. The server log has the details (look for \"Error:\")."
+
+
 class Handler(BaseHTTPRequestHandler):
     def send(self, status, body, content_type="application/json"):
         if isinstance(body, dict):
@@ -113,14 +129,19 @@ class Handler(BaseHTTPRequestHandler):
 
         session = get_session(session_id)
         with session["lock"]:  # one turn at a time per conversation
-            before = len(session["messages"])
+            messages = session["messages"]
+            before = len(messages)
+            # After chips, the next message joins the previous user turn, so note its size too.
+            tail = messages[-1]["content"] if messages and isinstance(messages[-1]["content"], list) else None
+            tail_len = len(tail) if tail is not None else 0
             try:
                 reply, choices = take_turn(session, text)
             except Exception as error:
-                del session["messages"][before:]  # drop the half-finished turn
+                del messages[before:]  # drop the half-finished turn
+                if tail is not None:
+                    del tail[tail_len:]
                 print(f"Error: {error!r}")
-                return self.send(502, {"error": "Angie couldn't reach Claude. "
-                                       "Check ANTHROPIC_API_KEY and try again."})
+                return self.send(502, {"error": friendly_error(error)})
         self.send(200, {"reply": reply, "choices": choices})
 
     def log_message(self, fmt, *args):  # keep the terminal quiet; no message text logged
