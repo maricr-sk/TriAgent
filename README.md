@@ -1,5 +1,5 @@
 # [TriAgent](https://triagent-wuu5.onrender.com)
-A care-navigation agent that helps people figure out where to go for a health concern. It offers suggestions only. It is not medical advice. In an emergency, call 911.
+Angie is a care-navigation agent that helps people figure out where to go for a health concern. It offers suggestions only. It is not medical advice. In an emergency, call 911.
 
 **How it works**
 1. You'll describe the symptoms in plain language. Then you'll give a city and state, or zip code, plus how far you'll travel. 
