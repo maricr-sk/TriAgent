@@ -2,6 +2,7 @@
 TriAgent: a command-line chat that runs the v0.2 prompt and tools.
 """
 
+import copy
 import json
 import math
 import os
@@ -462,6 +463,10 @@ def fake_results(level):
 # ---------------------------------------------------------------------------
 
 def run_tool(name, tool_input, intake):
+    # Work on a copy. Claude's tool_use blocks stay in the history and are sent back
+    # every turn; if the intake shared their dicts, later updates would rewrite those
+    # earlier blocks, and Claude rejects the changed history (thinking signature 400).
+    tool_input = copy.deepcopy(tool_input)
     if name == "record_intake":
         return record_intake(intake, tool_input)
     if name == "get_care_level":
