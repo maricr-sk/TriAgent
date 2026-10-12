@@ -3,6 +3,7 @@ TriAgent: a command-line chat that runs the v0.2 prompt and tools.
 """
 
 import json
+import math
 import os
 import urllib.error
 import urllib.parse
@@ -330,6 +331,15 @@ def travel_times(lat, lng, places, mode):
     return {row["destinationIndex"]: row for row in rows if row.get("condition") == "ROUTE_EXISTS"}
 
 
+def straight_line_meters(lat, lng, point):
+    """Distance as the crow flies, used when the Routes API is unavailable."""
+    lat1, lng1 = math.radians(lat), math.radians(lng)
+    lat2, lng2 = math.radians(point["latitude"]), math.radians(point["longitude"])
+    a = (math.sin((lat2 - lat1) / 2) ** 2
+         + math.cos(lat1) * math.cos(lat2) * math.sin((lng2 - lng1) / 2) ** 2)
+    return 2 * 6371000 * math.asin(math.sqrt(a))
+
+
 def find_care_nearby(intake, level, open_now_only=False, include_low_cost=False):
     if level == "call_911":
         return {"error": "Do not search for call_911; tell the person to call 911."}
@@ -359,11 +369,17 @@ def find_care_nearby(intake, level, open_now_only=False, include_low_cost=False)
         return {"results": []}
 
     mode = TRAVEL_MODES.get(intake.get("transport"), "DRIVE")
-    routes = travel_times(lat, lng, places, mode)
+    try:
+        routes, routes_error = travel_times(lat, lng, places, mode), None
+    except Exception as error:  # still list places, with straight-line distance
+        routes, routes_error = {}, str(error)
+        print(f"Routes API failed, using straight-line distances: {error}")
     results = []
     for i, place in enumerate(places):
         route = routes.get(i, {})
         meters = route.get("distanceMeters")
+        if routes_error and place.get("location"):
+            meters = straight_line_meters(lat, lng, place["location"])
         seconds = int(route.get("duration", "0s").rstrip("s") or 0)
         if unit == "minutes":
             in_radius = seconds and seconds / 60 <= value
@@ -382,6 +398,9 @@ def find_care_nearby(intake, level, open_now_only=False, include_low_cost=False)
             "maps_url": place.get("googleMapsUri"),
         })
     results.sort(key=lambda r: (not r["in_radius"], r["distance_miles"] or 9999))
+    if routes_error:
+        return {"results": results, "note": "Travel times are unavailable; distances "
+                "are straight-line, so say 'about N miles away' and give no drive times."}
     return {"results": results}
 
 
