@@ -1,4 +1,4 @@
-# [TriAgent] (https://triagent-wuu5.onrender.com)
+# [TriAgent](https://triagent-wuu5.onrender.com)
 A care-navigation agent that helps people figure out where to go for a health concern. It offers suggestions only. It is not medical advice. In an emergency, call 911.
 
 **How it works**
