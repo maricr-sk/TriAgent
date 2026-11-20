@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: triagent
+spec:
+  selector:
+    app: triagent
+  ports:
+    - port: 80
+      targetPort: 8000
